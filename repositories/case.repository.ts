@@ -29,6 +29,19 @@ export const CaseRepository = {
   },
 
   deleteCase: (id: string) => {
-    db.runSync(`DELETE FROM cases WHERE id = ?`, [id]);
-  },
+  db.runSync(`DELETE FROM tasks WHERE caseId = ?`, [id]);
+  db.runSync(`DELETE FROM case_events WHERE caseId = ?`, [id]);
+  db.runSync(`DELETE FROM cases WHERE id = ?`, [id]);
+},
+
+updateCase: (id: string, title: string) => {
+  const now = new Date().toISOString();
+
+  db.runSync(
+    `UPDATE cases 
+     SET title = ?, updatedAt = ?, syncStatus = ?
+     WHERE id = ?`,
+    [title, now, 'LOCAL', id]
+  );
+},
 };

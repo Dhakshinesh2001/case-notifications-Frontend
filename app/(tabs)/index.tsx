@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { View, Text, Button, FlatList } from 'react-native';
+import { View, Text, Button, FlatList, TextInput } from 'react-native';
 import { runMigrations } from '../../db/migrations';
 import { CaseRepository, Case } from '../../repositories/case.repository';
 import { EventRepository } from '../../repositories/event.repository';
@@ -13,6 +13,8 @@ import { useRouter } from 'expo-router';
 export default function HomeScreen() {
   const [cases, setCases] = useState<Case[]>([]);
   const router = useRouter();
+  const [editingCaseId, setEditingCaseId] = useState<string | null>(null);
+  const [editTitle, setEditTitle] = useState('');
 
   const loadCases = () => {
     const data = CaseRepository.getAllCases();
@@ -31,45 +33,81 @@ export default function HomeScreen() {
   };
 
   const handleAddEvent = async () => {
-  if (cases.length === 0) return;
+    if (cases.length === 0) return;
 
-  const caseId = cases[0].id;
-  await EventRepository.createEvent(
-    caseId,
-    'Hearing',
-    new Date().toISOString()
-  );
+    const caseId = cases[0].id;
+    await EventRepository.createEvent(
+      caseId,
+      'Hearing',
+      new Date().toISOString()
+    );
 
-  alert('Event added');
-};
+    alert('Event added');
+  };
 
-const handleAddTask = async () => {
-  if (cases.length === 0) return;
+  const handleAddTask = async () => {
+    if (cases.length === 0) return;
 
-  const caseId = cases[0].id;
-  await TaskRepository.createTask(caseId, 'Prepare documents');
+    const caseId = cases[0].id;
+    await TaskRepository.createTask(caseId, 'Prepare documents');
 
-  alert('Task added');
-};
+    alert('Task added');
+  };
 
   return (
-    <View style={{ padding: 20, marginTop: 50, backgroundColor: 'white'}}>
+    <View style={{ padding: 20, marginTop: 50, backgroundColor: 'white' }}>
       <Button title="Add Case" onPress={handleAddCase} />
       <Button title="Add Event to First Case" onPress={handleAddEvent} />
-<Button title="Add Task to First Case" onPress={handleAddTask} />
+      <Button title="Add Task to First Case" onPress={handleAddTask} />
 
       <FlatList
         data={cases}
         keyExtractor={(item) => item.id}
         renderItem={({ item }) => (
   <View style={{ marginTop: 10 }}>
-    <Text
-      style={{ fontSize: 16 }}
-      onPress={() => router.push(`/case/${item.id}`)}
-    >
-      {item.title}
-    </Text>
-    <Text style={{ color: 'gray' }}>{item.createdAt}</Text>
+    {editingCaseId === item.id ? (
+      <>
+        <TextInput
+          value={editTitle}
+          onChangeText={setEditTitle}
+          style={{ borderWidth: 1, padding: 6 }}
+        />
+
+        <Button
+          title="Save"
+          onPress={() => {
+            CaseRepository.updateCase(item.id, editTitle);
+            setEditingCaseId(null);
+            loadCases();
+          }}
+        />
+      </>
+    ) : (
+      <>
+        <Text
+          style={{ fontSize: 16 }}
+          onPress={() => router.push(`/case/${item.id}`)}
+        >
+          {item.title}
+        </Text>
+
+        <Button
+          title="Edit"
+          onPress={() => {
+            setEditingCaseId(item.id);
+            setEditTitle(item.title);
+          }}
+        />
+
+        <Button
+          title="Delete"
+          onPress={() => {
+            CaseRepository.deleteCase(item.id);
+            loadCases();
+          }}
+        />
+      </>
+    )}
   </View>
 )}
       />

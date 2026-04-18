@@ -45,4 +45,19 @@ export const TaskRepository = {
     return result as Task[];
   },
 
+  updateTask: (taskId: string, title: string) => {
+  const now = new Date().toISOString();
+
+  db.runSync(
+    `UPDATE tasks 
+     SET title = ?, updatedAt = ?, syncStatus = ?
+     WHERE id = ?`,
+    [title, now, 'LOCAL', taskId]
+  );
+},
+
+  deleteTask: (taskId: string) => {
+  db.runSync(`DELETE FROM tasks WHERE id = ?`, [taskId]);
+},
+
 };

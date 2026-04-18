@@ -29,4 +29,8 @@ export const EventRepository = {
     );
     return result as CaseEvent[];
   },
+
+  deleteEvent: (eventId: string) => {
+  db.runSync(`DELETE FROM case_events WHERE id = ?`, [eventId]);
+},
 };
