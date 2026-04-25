@@ -7,6 +7,8 @@ import { EventRepository, CaseEvent } from '../../repositories/event.repository'
 import { TaskRepository, Task } from '../../repositories/task.repository';
 
 import DateTimePicker from '@react-native-community/datetimepicker';
+import { CaseAPI } from '../../api/case.api';
+import { isOnline } from '../../utils/network';
 
 export default function CaseDetailScreen() {
   const { id } = useLocalSearchParams();
@@ -27,18 +29,43 @@ export default function CaseDetailScreen() {
   const [editTaskTitle, setEditTaskTitle] = useState('');
 
   useEffect(() => {
-    if (!id) return;
+  if (!id) return;
 
-    const caseItem =
-      CaseRepository.getAllCases().find((c) => c.id === id) || null;
+  const loadData = async () => {
+    // 🔄 Always load local first
+    const localCase =
+      CaseRepository.getAllCases().find(c => c.id === id) || null;
+
+    setCaseData(localCase);
 
     const caseEvents = EventRepository.getEventsByCase(id as string);
     const caseTasks = TaskRepository.getTasksByCase(id as string);
 
-    setCaseData(caseItem);
     setEvents(caseEvents);
     setTasks(caseTasks);
-  }, [id]);
+
+    // 🌐 Try sync (if online)
+    const online = await isOnline();
+
+    if (online) {
+      try {
+        const remote = await CaseAPI.getCaseById(id as string);
+
+        // 🔄 Update local DB with latest backend data
+        CaseRepository.updateCase(
+          remote.id,
+          remote.title
+        );
+
+        setCaseData(remote);
+      } catch (err) {
+        console.log('Sync failed', err);
+      }
+    }
+  };
+
+  loadData();
+}, [id]);
 
   const handleDateChange = (_: any, selectedDate?: Date) => {
     setShowPicker(false);
