@@ -1,181 +1,169 @@
-import { db } from '../db/database';
-import { generateId } from '../utils/uuid';
-import { isOnline } from '../utils/network';
-import { CaseAPI } from '../api/case.api';
+// import { db } from '../db/database';
+import { SyncStatus } from './types';
+import { getDB } from '../db/provider';
+
+const db = getDB();
 
 export type Case = {
   id: string;
   title: string;
   description?: string;
   caseNumber?: string;
+  court?: string;
+  status?: string;
+
   createdAt: string;
   updatedAt: string;
-  syncStatus: string;
+  deletedAt?: string;
+
+  lastFetchedAt?: string;
+
+  syncStatus: SyncStatus;
+  isSynced: number; // 0 | 1
 };
 
 export const CaseRepository = {
-  createCase: async (title: string) => {//TODO remove later if unused
-    const id = await generateId();
+  createLocal: (data: Case) => {
+    db.runSync(
+      `INSERT INTO cases 
+      (id, title, description, caseNumber, court, status, createdAt, updatedAt, syncStatus, isSynced)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        data.id,
+        data.title,
+        data.description ?? null,
+        data.caseNumber ?? null,
+        data.court ?? null,
+        data.status ?? null,
+        data.createdAt,
+        data.updatedAt,
+        'PENDING',
+        0,
+      ]
+    );
+  },
+
+  updateLocal: (id: string, updates: Partial<Case>) => {
+    const now = new Date().toISOString();
+
+    const fields = [];
+    const values: any[] = [];
+
+    Object.entries(updates).forEach(([key, value]) => {
+      fields.push(`${key} = ?`);
+      values.push(value);
+    });
+
+    fields.push(`updatedAt = ?`);
+    values.push(now);
+
+    fields.push(`syncStatus = ?`);
+    values.push('PENDING');
+
+    db.runSync(
+      `UPDATE cases SET ${fields.join(', ')} WHERE id = ?`,
+      [...values, id]
+    );
+  },
+
+  softDelete: (id: string) => {
     const now = new Date().toISOString();
 
     db.runSync(
-      `INSERT INTO cases (id, title, createdAt, updatedAt, syncStatus)
-       VALUES (?, ?, ?, ?, ?)`,
-      [id, title, now, now, 'LOCAL']
+      `UPDATE cases 
+       SET deletedAt = ?, syncStatus = ?
+       WHERE id = ?`,
+      [now, 'PENDING', id]
     );
   },
 
-  getAllCases: (): Case[] => {//TODO remove if unused
-    const result = db.getAllSync(`SELECT * FROM cases ORDER BY createdAt DESC`);
-    return result as Case[];
+  getById: (id: string): Case | null => {
+    const res = db.getAllSync(`SELECT * FROM cases WHERE id = ?`, [id]);
+    return (res[0] as Case) || null;
   },
 
-  deleteCase: (id: string) => {
-  db.runSync(`DELETE FROM tasks WHERE caseId = ?`, [id]);
-  db.runSync(`DELETE FROM case_events WHERE caseId = ?`, [id]);
-  db.runSync(`DELETE FROM cases WHERE id = ?`, [id]);
-},
+  getAll: (): Case[] => {
+    return db.getAllSync(
+      `SELECT * FROM cases WHERE deletedAt IS NULL ORDER BY createdAt DESC`
+    ) as Case[];
+  },
 
-updateCase: (id: string, title: string) => {
-  const now = new Date().toISOString();
+  getPending: (): Case[] => {
+    return db.getAllSync(
+      `SELECT * FROM cases WHERE syncStatus = 'PENDING'`
+    ) as Case[];
+  },
 
-  db.runSync(
-    `UPDATE cases 
-     SET title = ?, updatedAt = ?, syncStatus = ?
-     WHERE id = ?`,
-    [title, now, 'LOCAL', id]
-  );
-},
+  getFailed: (): Case[] => {
+    return db.getAllSync(
+      `SELECT * FROM cases WHERE syncStatus = 'FAILED'`
+    ) as Case[];
+  },
 
-updateCaseWithConflictCheck: async (
-  id: string,
-  title: string
-) => {
-  const online = await isOnline();
-
-  // 🟡 OFFLINE → allow
-  if (!online) {
-    CaseRepository.updateCase(id, title);
-    return;
-  }
-
-  // 🟢 ONLINE → check backend
-  const remote = await CaseAPI.getCaseById(id);
-
-  const local = CaseRepository.getAllCases().find(c => c.id === id);
-
-  if (!local) return;
-
-  // 🔴 CONFLICT
-  if (new Date(remote.updatedAt) > new Date(local.updatedAt)) {
-    throw new Error('CONFLICT');
-  }
-
-  // ✅ SAFE → update locally
-  CaseRepository.updateCase(id, title);
-},
-
-saveCasesFromBackend: (cases: any[]) => {
-  cases.forEach((c) => {
+  markSynced: (id: string, updatedAt: string) => {
     db.runSync(
-      `INSERT OR REPLACE INTO cases 
-      (id, title, caseNumber, createdAt, updatedAt, syncStatus)
-      VALUES (?, ?, ?, ?, ?, ?)`,
-      [
-        c.id,
-        c.title,
-        c.caseNumber ?? null,
-        c.createdAt,
-        c.updatedAt,
-        'SYNCED',
-      ]
+      `UPDATE cases 
+       SET syncStatus = ?, isSynced = ?, updatedAt = ?
+       WHERE id = ?`,
+      ['SYNCED', 1, updatedAt, id]
     );
-  });
-},
+  },
 
-getCases: async (onUpdate?: (cases: Case[]) => void): Promise<Case[]> => {
-  // 1️⃣ Return local data immediately
-  const local = db.getAllSync(
-    `SELECT * FROM cases ORDER BY createdAt DESC`
-  ) as Case[];
+  markFailed: (id: string) => {
+    db.runSync(
+      `UPDATE cases SET syncStatus = ? WHERE id = ?`,
+      ['FAILED', id]
+    );
+  },
 
-  // 2️⃣ Background fetch (don’t block UI)
-  (async () => {
-    try {
-      const remote = await CaseAPI.getCases();
+  removeDeleted: (id: string) => {
+    db.runSync(`DELETE FROM cases WHERE id = ?`, [id]);
+  },
 
-      CaseRepository.saveCasesFromBackend(remote);
+  upsertFromBackend: (data: any) => {
+    const local = CaseRepository.getById(data.id);
 
-      const updated = db.getAllSync(
-        `SELECT * FROM cases ORDER BY createdAt DESC`
-      ) as Case[];
-
-      onUpdate?.(updated); // 🔥 notify UI
-    } catch (err) {
-      console.log('Background sync failed', err);
-    }
-  })();
-
-  
-
-  return local;
-},
-
-createCaseLocal: async (title: string) => {
-  const id = await generateId();
-  const now = new Date().toISOString();
-
-  db.runSync(
-    `INSERT INTO cases 
-    (id, title, createdAt, updatedAt, syncStatus)
-    VALUES (?, ?, ?, ?, ?)`,
-    [id, title, now, now, 'PENDING']
-  );
-
-  return {
-    id,
-    title,
-    createdAt: now,
-    updatedAt: now,
-    syncStatus: 'PENDING',
-  };
-},
-
-getPendingCases: (): Case[] => {
-  return db.getAllSync(
-    `SELECT * FROM cases WHERE syncStatus = 'PENDING'`
-  );
-},
-
-markCaseAsSynced: (id: string, updatedAt: string) => {
-  db.runSync(
-    `UPDATE cases 
-     SET syncStatus = ?, updatedAt = ?
-     WHERE id = ?`,
-    ['SYNCED', updatedAt, id]
-  );
-},
-
-pushCases: async () => {
-  const pending = CaseRepository.getPendingCases();
-
-  for (const c of pending) {
-    try {
-      const res = await CaseAPI.createCase({
-        title: c.title,
-        caseNumber: c.caseNumber,
-      });
-
-      // ✅ mark synced
-      CaseRepository.markCaseAsSynced(
-        c.id,
-        res.updatedAt
+    if (!local) {
+      db.runSync(
+        `INSERT INTO cases 
+        (id, title, description, caseNumber, court, status, createdAt, updatedAt, syncStatus, isSynced, lastFetchedAt)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          data.id,
+          data.title,
+          data.description ?? null,
+          data.caseNumber ?? null,
+          data.court ?? null,
+          data.status ?? null,
+          data.createdAt,
+          data.updatedAt,
+          'SYNCED',
+          1,
+          new Date().toISOString(),
+        ]
       );
-
-    } catch (err) {
-      console.log('Push failed for case', c.id);
-      // ❌ keep as PENDING
+      return;
     }
-  }
-},
+
+    if (new Date(data.updatedAt) > new Date(local.updatedAt)) {
+      db.runSync(
+        `UPDATE cases SET
+          title = ?, description = ?, caseNumber = ?, court = ?, status = ?,
+          updatedAt = ?, lastFetchedAt = ?, syncStatus = ?, isSynced = ?
+         WHERE id = ?`,
+        [
+          data.title,
+          data.description ?? null,
+          data.caseNumber ?? null,
+          data.court ?? null,
+          data.status ?? null,
+          data.updatedAt,
+          new Date().toISOString(),
+          'SYNCED',
+          1,
+          data.id,
+        ]
+      );
+    }
+  },
 };

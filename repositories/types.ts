@@ -1,0 +1,1 @@
+export type SyncStatus = 'PENDING' | 'SYNCED' | 'FAILED';

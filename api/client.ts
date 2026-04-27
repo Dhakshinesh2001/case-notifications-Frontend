@@ -1,8 +1,18 @@
+import { getAuthToken } from './auth';
+import { setAuthTokenProvider } from './auth';
+import { getOrgId } from './org';
+
+setAuthTokenProvider(async () => {
+  return "your_test_token";
+});
+
 const BASE_URL = process.env.EXPO_PUBLIC_API_URL;
 
 // 🔒 TEMP (later replace with Clerk)
 const TOKEN = "your_test_token";
-const ORG_ID = "86c9be4f-50cd-4616-b49d-91120b112f38";
+// const ORG_ID = getOrgId() as string;
+const ORG_ID = '86c9be4f-50cd-4616-b49d-91120b112f38'; //TODO remove this line
+
 
 type Method = 'GET' | 'POST' | 'PATCH' | 'DELETE';
 
@@ -11,21 +21,30 @@ async function request(
   method: Method = 'GET',
   body?: any
 ) {
+
+  const token = await getAuthToken();
+
   const res = await fetch(`${BASE_URL}${endpoint}`, {
     method,
     headers: {
       'Content-Type': 'application/json',
-      Authorization: `Bearer ${TOKEN}`,
-      'x-org-id': ORG_ID,
+      Authorization: TOKEN ? `Bearer ${TOKEN}` : "",
+      'x-org-id': ORG_ID || "",
     },
     body: body ? JSON.stringify(body) : undefined,
   });
 
   if (!res.ok) {
-    const error = await res.json();
+    let error;
+    try {
+      error = await res.json();
+    } catch {
+      error = { message: 'API Error' };
+    }
     throw new Error(error.message || 'API Error');
   }
 
+  // ✅ ALWAYS return parsed JSON
   return res.json();
 }
 
