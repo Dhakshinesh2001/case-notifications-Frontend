@@ -1,20 +1,14 @@
 import { useEffect, useState } from 'react';
-import {
-  View,
-  Text,
-  FlatList,
-  TouchableOpacity,
-} from 'react-native';
+import { View, Text, FlatList } from 'react-native';
 
-import { CaseService } from '../../features/case/case.service';
-import { EventService } from '../../features/event/event.service';
-import { TaskService } from '../../features/task/task.service';
-import { router } from 'expo-router';
+import { CaseService } from '@/features/case/case.service';
 import { SyncService } from '@/features/sync/sync.service';
 
+import CaseCard from '../../components/CaseCard';
+
+import { subscribeOrg } from '../../api/org';
+
 type Case = any;
-type CaseEvent = any;
-type Task = any;
 
 export default function CasesScreen() {
   const [cases, setCases] = useState<Case[]>([]);
@@ -23,24 +17,23 @@ export default function CasesScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
-  
-
+  // 🔄 Pull to refresh
   const onRefresh = async () => {
-  setRefreshing(true);
+    setRefreshing(true);
 
-  await SyncService.syncAll();
-  loadCases();
+    await SyncService.syncAll();
+    loadCases();
 
-  setRefreshing(false);
-};
+    setRefreshing(false);
+  };
 
-  const loadCases = async () => {
-    // console.log("load cases called");
+  // 📥 Load from local DB
+  const loadCases = () => {
     const data = CaseService.getCases();
-    // console.log(data);
     setCases(data);
   };
 
+  // 🔽 Toggle expand
   const toggleExpand = (id: string) => {
     setExpanded((prev) => ({
       ...prev,
@@ -48,185 +41,69 @@ export default function CasesScreen() {
     }));
   };
 
-  const getCurrentEvent = (events: CaseEvent[]) => {
-    if (!events.length) return null;
+  // 🚀 Initial load (local-first + sync)
+  useEffect(() => {
+    loadInitial();
 
-    const now = new Date();
 
-    const upcoming = events
-      .filter((e) => new Date(e.eventDate) >= now)
-      .sort(
-        (a, b) =>
-          new Date(a.eventDate).getTime() -
-          new Date(b.eventDate).getTime()
-      );
 
-    if (upcoming.length) return upcoming[0];
 
-    return events.sort(
-      (a, b) =>
-        new Date(b.eventDate).getTime() -
-        new Date(a.eventDate).getTime()
-    )[0];
+  const unsubscribe = subscribeOrg(() => {
+    console.log("Org changed → reload cases");
+
+    loadCases(); // 🔥 reload UI
+  });
+
+  return unsubscribe;
+
+  }, []);
+
+  const loadInitial = async () => {
+    setLoading(true);
+
+    loadCases(); // ✅ instant local
+
+    await SyncService.syncAll(); // 🔄 backend sync
+
+    loadCases(); // 🔁 refresh UI
+
+    setLoading(false);
   };
 
-  const getLastTask = (tasks: Task[]) => {
-    if (!tasks.length) return null;
-
-    return tasks.sort(
-      (a, b) =>
-        new Date(b.createdAt).getTime() -
-        new Date(a.createdAt).getTime()
-    )[0];
-  };
-
-  const getTaskColor = (status: string) => {
-    switch (status) {
-      case 'DONE':
-        return '#d4edda';
-      case 'IN_PROGRESS':
-        return '#fff3cd';
-      default:
-        return '#f8d7da';
-    }
-  };
-
+  // 🧱 Render each case
   const renderCase = ({ item }: { item: Case }) => {
-    const isOpen = expanded[item.id];
-
-    const events = EventService.getEvents(item.id);
-    const tasks = TaskService.getTasks(item.id);
-
-    const currentEvent = getCurrentEvent(events);
-    const lastTask = getLastTask(tasks);
-
     return (
-      <TouchableOpacity
-        onPress={() => toggleExpand(item.id)}
-        style={{
-          borderWidth: 1,
-          borderRadius: 10,
-          padding: 12,
-          marginBottom: 10,
-          backgroundColor: '#fff',
-        }}
-      >
-        {/* 🔹 COLLAPSED VIEW */}
-        <Text style={{ fontWeight: 'bold', fontSize: 16 }}>
-          {item.title}
-        </Text>
-
-        <Text>Case #: {item.caseNumber || '-'}</Text>
-        <Text>Status: {item.status || 'Pending'}</Text>
-
-        {currentEvent && (
-          <Text style={{ marginTop: 5 }}>
-            📅 {currentEvent.content} (
-            {new Date(currentEvent.eventDate).toDateString()})
-          </Text>
-        )}
-
-        {lastTask && (
-          <View
-            style={{
-              marginTop: 5,
-              padding: 6,
-              borderRadius: 6,
-              backgroundColor: getTaskColor(lastTask.status),
-            }}
-          >
-            <Text>📝 {lastTask.title}</Text>
-          </View>
-        )}
-
-        {/* 🔹 EXPANDED VIEW */}
-        {isOpen && (
-          <View style={{ marginTop: 10 }}>
-            <Text>--- Details ---</Text>
-
-            <Text>Description: {item.description || '-'}</Text>
-            <Text>Court: {item.court || '-'}</Text>
-
-            {/* Recent Events */}
-            <Text style={{ marginTop: 8, fontWeight: 'bold' }}>
-              Events
-            </Text>
-
-            {events.slice(0, 3).map((e) => (
-              <Text key={e.id}>
-                • {e.content} ({new Date(e.eventDate).toDateString()})
-              </Text>
-            ))}
-
-            {/* Recent Tasks */}
-            <Text style={{ marginTop: 8, fontWeight: 'bold' }}>
-              Tasks
-            </Text>
-
-            {tasks.slice(0, 3).map((t) => (
-              <View
-                key={t.id}
-                style={{
-                  marginTop: 4,
-                  padding: 6,
-                  borderRadius: 6,
-                  backgroundColor: getTaskColor(t.status),
-                }}
-              >
-                <Text>{t.title}</Text>
-                <Text>Status: {t.status}</Text>
-              </View>
-            ))}
-
-            {/* Actions */}
-            <View style={{ marginTop: 10 }}>
-              <Text style={{ color: 'blue' }}
-              onPress={()=>router.push(`/case/${item.id}`)}>
-                Open Details →
-              </Text>
-            </View>
-          </View>
-        )}
-      </TouchableOpacity>
+      <CaseCard
+        item={item}
+        isOpen={expanded[item.id]}
+        onToggle={() => toggleExpand(item.id)}
+      />
     );
   };
 
-  useEffect(() => {
-  loadInitial();
-}, []);
+  // ⏳ Loading state
+  if (loading) {
+    return (
+      <View style={{ padding: 20 }}>
+        <Text>Loading cases...</Text>
+      </View>
+    );
+  }
 
-const loadInitial = async () => {
-  setLoading(true);
+  // 📭 Empty state
+  if (!cases.length) {
+    return (
+      <View style={{ padding: 20, alignItems: 'center' }}>
+        <Text style={{ fontSize: 16, marginBottom: 10 }}>
+          No cases yet
+        </Text>
 
-  loadCases(); // local first
+        <Text>Create your first case to get started</Text>
+      </View>
+    );
+  }
 
-  await SyncService.syncAll(); // fetch
-
-  loadCases(); // refresh
-
-  setLoading(false);
-};
-
-if (loading) {
-  return (
-    <View style={{ padding: 20 }}>
-      <Text>Loading cases...</Text>
-    </View>
-  );
-}
-
-if (!cases.length) {
-  return (
-    <View style={{ padding: 20, alignItems: 'center' }}>
-      <Text style={{ fontSize: 16, marginBottom: 10 }}>
-        No cases yet
-      </Text>
-
-      <Text>Create your first case to get started</Text>
-    </View>
-  );
-}
-
+  // 📋 List
   return (
     <FlatList
       data={cases}

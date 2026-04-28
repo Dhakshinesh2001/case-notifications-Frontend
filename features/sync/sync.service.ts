@@ -8,16 +8,23 @@ import { TaskAPI } from '../../api/task.api';
 import { SyncAPI } from '../../api/sync.api';
 
 import { AppStatusActions } from '../../hooks/useAppStatus';
+import { getOrgId } from '../../api/org';
 
 export const SyncService = {
   // 🔁 GLOBAL SYNC
   syncAll: async () => {
     console.log("syncAll called");
+     const orgId = getOrgId();
+    if (!orgId) {
+    console.log("Skipping sync: no org selected");
+    return;
+  }
 
     AppStatusActions.setSyncing(true);
     AppStatusActions.setFailed(false);
 
     try {
+        
       await Promise.all([
         SyncService.pushCases(),
         SyncService.pushEvents(),
@@ -110,12 +117,14 @@ export const SyncService = {
         }
         // 🔄 UPDATE
         else {
+          console.log("elese case in Push entity")
           const res = await updateFn(item.id, payload);
           markSynced(item.id, res.updatedAt);
         }
 
       } catch (err) {
         console.log("Push failed:", err);
+        console.log(item.id, item);
         markFailed(item.id);
       }
     }
@@ -123,6 +132,7 @@ export const SyncService = {
 
   // 🔼 CASES
   pushCases: async () => {
+    console.log("push cases called");
     const items = CaseRepository.getPending();
 
     await SyncService.pushEntity({

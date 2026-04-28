@@ -6,6 +6,7 @@ import { OfflineBanner } from '../components/OfflineBanner';
 import { useEffect } from 'react';
 import { SyncService } from '@/features/sync/sync.service';
 import { useOrg } from '@/hooks/useOrg';
+// import { ClerkProvider } from '@clerk/clerk-expo';
 // import { useAppStatus } from '@/hooks/useAppStatus';
 
 // const title =  "hihi";
@@ -25,6 +26,7 @@ useEffect(() => {
 
 // const { isOnline, isSyncing, hasFailed } = useAppStatus();
   return (
+    // <ClerkProvider publishableKey="YOUR_PUBLISHABLE_KEY">
     <Drawer
       drawerContent={(props: any) => <DrawerContent {...props} />}
       screenOptions={{

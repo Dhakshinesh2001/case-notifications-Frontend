@@ -1,354 +1,157 @@
 import { useEffect, useState } from 'react';
-import {
-    View,
-    Text,
-    FlatList,
-    TouchableOpacity,
-    TextInput,
-} from 'react-native';
+import { View, FlatList, Text, TouchableOpacity } from 'react-native';
 import { useLocalSearchParams } from 'expo-router';
 
-import { CaseService } from '../../features/case/case.service';
-import { EventService } from '../../features/event/event.service';
-import { TaskService } from '../../features/task/task.service';
+import { CaseService } from '@/features/case/case.service';
+import { TaskService } from '@/features/task/task.service';
+import { EventService } from '@/features/event/event.service';
+import { SyncService } from '@/features/sync/sync.service';
 
-type Case = any;
-type CaseEvent = any;
-type Task = any;
+import CaseHeader from '@/components/case/CaseHeader';
+import TimelineItem from '@/components/case/TimelineItem';
+import AddButton from '@/components/case/AddButton';
 
 export default function CaseDetailScreen() {
     const { id } = useLocalSearchParams();
 
-    const [caseData, setCaseData] = useState<Case | null>(null);
-    const [events, setEvents] = useState<CaseEvent[]>([]);
-    const [tasks, setTasks] = useState<Task[]>([]);
+    const [caseData, setCaseData] = useState<any>(null);
+    const [tasks, setTasks] = useState<any[]>([]);
+    const [events, setEvents] = useState<any[]>([]);
 
-    const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
-    const [editTitle, setEditTitle] = useState('');
+    const [filter, setFilter] = useState<'ALL' | 'EVENT' | 'TASK'>('ALL');
+    const [expandedId, setExpandedId] = useState<string | null>(null);
 
-    const [isEditingCase, setIsEditingCase] = useState(false);
-    const [editCase, setEditCase] = useState<any>({});
-
-    const [newEventText, setNewEventText] = useState('');
-    const [newTaskText, setNewTaskText] = useState('');
+    const loadData = () => {
+        setCaseData(CaseService.getCaseById(id as string));
+        setTasks(TaskService.getTasks(id as string));
+        setEvents(EventService.getEvents(id as string));
+    };
 
     useEffect(() => {
-        if (!id) return;
+        loadData();
+        SyncService.syncAll().then(loadData);
+    }, []);
 
-        loadLocal();
-        syncRemote();
-    }, [id]);
+    // 🧠 timeline builder
+    const buildTimeline = () => {
+        const items: any[] = [];
+        const tasksByEvent: Record<string, any[]> = {};
 
-    const loadLocal = () => {
-        const c = CaseService.getCaseById(id as string);
-        const e = EventService.getEvents(id as string);
-        const t = TaskService.getTasks(id as string);
+        tasks.forEach((t) => {
+            if (t.eventId) {
+                if (!tasksByEvent[t.eventId]) {
+                    tasksByEvent[t.eventId] = [];
+                }
+                tasksByEvent[t.eventId].push(t);
+            }
+        });
 
-        setCaseData(c);
-        setEvents(sortEvents(e));
-        setTasks(t);
-    };
+        events.forEach((event) => {
+            items.push({
+                type: 'event',
+                date: new Date(event.eventDate),
+                event,
+                tasks: tasksByEvent[event.id] || [],
+            });
+        });
 
-    const syncRemote = async () => {
-        const res = await CaseService.syncCase(id as string);
-
-        if (res.conflict) {
-            console.log('⚠ Conflict resolved with server');
-        }
-
-        loadLocal();
-    };
-
-    const sortEvents = (events: CaseEvent[]) => {
-        return events.sort(
-            (a, b) =>
-                new Date(a.eventDate).getTime() -
-                new Date(b.eventDate).getTime()
-        );
-    };
-
-    const getTaskColor = (status: string) => {
-        switch (status) {
-            case 'DONE':
-                return '#d4edda';
-            case 'IN_PROGRESS':
-                return '#fff3cd';
-            default:
-                return '#f8d7da';
-        }
-    };
-
-    const getEventById = (eventId?: string) => {
-        return events.find((e) => e.id === eventId);
-    };
-
-    const handleUpdateTask = (taskId: string) => {
-        TaskService.updateTask(taskId, { title: editTitle });
-        setEditingTaskId(null);
-        loadLocal();
-    };
-
-    const renderEvent = ({ item }: { item: CaseEvent }) => (
-        <TouchableOpacity
-            onLongPress={() => {
-                EventService.updateEvent(item.id, {
-                    content: item.content + ' (edited)',
+        tasks
+            .filter((t) => !t.eventId)
+            .forEach((task) => {
+                items.push({
+                    type: 'task',
+                    date: new Date(task.dueDate || task.createdAt),
+                    task,
                 });
-                loadLocal();
-            }}
-        >
-            <View
-                style={{
-                    marginBottom: 10,
-                    padding: 10,
-                    borderLeftWidth: 3,
-                    borderLeftColor: '#007bff',
-                    backgroundColor: '#f9f9f9',
-                }}
-            >
-                <Text style={{ fontWeight: 'bold' }}>{item.content}</Text>
-                <Text>{new Date(item.eventDate).toDateString()}</Text>
-            </View></TouchableOpacity>
-    );
+            });
 
-    const renderTask = ({ item }: { item: Task }) => {
-        const linkedEvent = getEventById(item.eventId);
-
-        return (
-            <View
-                style={{
-                    marginBottom: 10,
-                    padding: 10,
-                    borderRadius: 8,
-                    backgroundColor: getTaskColor(item.status),
-                }}
-            >
-                {editingTaskId === item.id ? (
-                    <>
-                        <TextInput
-                            value={editTitle}
-                            onChangeText={setEditTitle}
-                            style={{ borderWidth: 1, padding: 6 }}
-                        />
-                        <TouchableOpacity
-                            onPress={() => handleUpdateTask(item.id)}
-                        >
-                            <Text style={{ color: 'blue' }}>Save</Text>
-                        </TouchableOpacity>
-                        {events.map((e) => (
-                            <TouchableOpacity
-                                key={e.id}
-                                onPress={() => {
-                                    TaskService.updateTask(item.id, { eventId: e.id });
-                                    loadLocal();
-                                }}
-                            >
-                                <Text>{e.content}</Text>
-                            </TouchableOpacity>
-                        ))}
-                    </>
-                ) : (
-                    <>
-                        <Text style={{ fontWeight: 'bold' }}>
-                            {item.title}
-                        </Text>
-
-                        <Text>Status: {item.status}</Text>
-
-                        {linkedEvent && (
-                            <Text style={{ marginTop: 4 }}>
-                                🔗 Linked to: {linkedEvent.content}
-                            </Text>
-                        )}
-
-                        <View style={{ flexDirection: 'row', marginTop: 6 }}>
-                            <TouchableOpacity
-                                onPress={() => {
-                                    setEditingTaskId(item.id);
-                                    setEditTitle(item.title);
-                                }}
-                            >
-                                <Text style={{ color: 'blue', marginRight: 10 }}>
-                                    Edit
-                                </Text>
-                            </TouchableOpacity>
-
-                            <TouchableOpacity
-                                onPress={() => {
-                                    TaskService.deleteTask(item.id);
-                                    loadLocal();
-                                }}
-                            >
-                                <Text style={{ color: 'red' }}>Delete</Text>
-                            </TouchableOpacity>
-                            <View style={{ flexDirection: 'row', marginTop: 5 }}>
-                                {['OPEN', 'IN_PROGRESS', 'DONE'].map((s) => (
-                                    <TouchableOpacity
-                                        key={s}
-                                        onPress={() => {
-                                            TaskService.updateTaskStatus(item.id, s);
-                                            loadLocal();
-                                        }}
-                                    >
-                                        <Text style={{ marginRight: 10 }}>{s}</Text>
-                                    </TouchableOpacity>
-                                ))}
-                            </View>
-                        </View>
-                    </>
-                )}
-            </View>
-        );
+        items.sort((a, b) => b.date.getTime() - a.date.getTime());
+        return items;
     };
 
-    if (!caseData) {
-        return (
-            <View style={{ padding: 20 }}>
-                <Text>Loading...</Text>
-            </View>
-        );
-    }
+    const timeline = buildTimeline();
+
+    const filteredTimeline = timeline.filter((item) => {
+        if (filter === 'EVENT') return item.type === 'event';
+        if (filter === 'TASK') return item.type === 'task';
+        return true;
+    });
+
+    const handleFilterChange = (f: 'ALL' | 'EVENT' | 'TASK') => {
+        setFilter(f);
+        setExpandedId(null); // 🔥 reset all cards
+    };
+
+    const handleAddTask = () => {
+        TaskService.createTask(id as string, {
+            title: 'New Task',
+            status: 'OPEN',
+        });
+        loadData();
+    };
+
+    const handleAddEvent = () => {
+  const newId = EventService.createEvent(id as string, {
+    content: 'New Event',
+    type: 'GENERAL',
+    eventDate: new Date().toISOString(),
+  });
+
+  setExpandedId(`event_${newId}`); // 🔥 THIS is the real fix
+  loadData();
+};
+
+    if (!caseData) return <Text>Loading...</Text>;
 
     return (
-        <View style={{ padding: 12 }}>
-            {/* 🔹 CASE HEADER */}
-            <View style={{ marginBottom: 15 }}>
-                {isEditingCase ? (
-                    <>
-                        <TextInput
-                            value={editCase.title}
-                            onChangeText={(t) =>
-                                setEditCase({ ...editCase, title: t })
-                            }
-                            style={{ borderWidth: 1, marginBottom: 5 }}
-                        />
+        <View style={{ flex: 1 }}>
+            <FlatList
+                data={filteredTimeline}
+                keyExtractor={(_, i) => i.toString()}
+                ListHeaderComponent={<>
+                    <CaseHeader caseData={caseData} onUpdate={loadData} />
+                    <View
+                        style={{
+                            flexDirection: 'row',
+                            marginBottom: 10,
+                            gap: 10,
+                        }}
+                    >
+                        {['ALL', 'EVENT', 'TASK'].map((f) => (
+                            <TouchableOpacity
+                                key={f}
+                                onPress={() => handleFilterChange(f as any)}
+                                style={{
+                                    paddingVertical: 6,
+                                    paddingHorizontal: 12,
+                                    borderRadius: 20,
+                                    backgroundColor: filter === f ? '#000' : '#eee',
+                                }}
+                            >
+                                <Text style={{ color: filter === f ? '#fff' : '#000' }}>
+                                    {f === 'ALL' ? 'All' : f === 'EVENT' ? 'Events' : 'Tasks'}
+                                </Text>
+                            </TouchableOpacity>
+                        ))}
+                    </View></>
 
-                        <TextInput
-                            value={editCase.caseNumber}
-                            onChangeText={(t) =>
-                                setEditCase({ ...editCase, caseNumber: t })
-                            }
-                            style={{ borderWidth: 1, marginBottom: 5 }}
-                        />
-
-                        <TextInput
-                            value={editCase.court}
-                            onChangeText={(t) =>
-                                setEditCase({ ...editCase, court: t })
-                            }
-                            style={{ borderWidth: 1, marginBottom: 5 }}
-                        />
-
-                        <TouchableOpacity
-                            onPress={() => {
-                                CaseService.updateCase(id as string, editCase);
-                                setIsEditingCase(false);
-                                loadLocal();
-                            }}
-                        >
-                            <Text style={{ color: 'blue' }}>Save</Text>
-                        </TouchableOpacity>
-                    </>
-                ) : (
-                    <>
-                        <Text style={{ fontSize: 20, fontWeight: 'bold' }}>
-                            {caseData.title}
-                        </Text>
-
-                        <Text>Case #: {caseData.caseNumber || '-'}</Text>
-                        <Text>Status: {caseData.status || 'Pending'}</Text>
-                        <Text>Court: {caseData.court || '-'}</Text>
-
-                        <TouchableOpacity
-                            onPress={() => {
-                                setEditCase(caseData);
-                                setIsEditingCase(true);
-                            }}
-                        >
-                            <Text style={{ color: 'blue' }}>Edit</Text>
-                        </TouchableOpacity>
-                    </>
+                }
+                renderItem={({ item, index }) => (
+                    <TimelineItem
+                        item={item}
+                        index={index}
+                        onUpdate={loadData}
+                        expandedId={expandedId}
+                        setExpandedId={setExpandedId}
+                    />
                 )}
-            </View>
-
-            {/* 🔹 EVENTS */}
-            <Text style={{ fontWeight: 'bold', marginBottom: 5 }}>
-                Events
-            </Text>
-
-            <FlatList
-                data={events}
-                keyExtractor={(item) => item.id}
-                renderItem={renderEvent}
-                scrollEnabled={false}
+                contentContainerStyle={{ padding: 16 }}
             />
-            <View style={{ marginTop: 10 }}>
-                <TextInput
-                    placeholder="New event..."
-                    value={newEventText}
-                    onChangeText={setNewEventText}
-                    style={{ borderWidth: 1, padding: 6 }}
-                />
 
-                <TouchableOpacity
-                    onPress={() => {
-                        if (!newEventText.trim()) return;
-
-                        EventService.createEvent(id as string, {
-                            content: newEventText,
-                            eventDate: new Date().toISOString(),
-                        });
-
-                        setNewEventText('');
-                        loadLocal();
-                    }}
-                >
-                    <Text style={{ color: 'blue' }}>Add Event</Text>
-                </TouchableOpacity>
-            </View>
-
-            {/* 🔹 TASKS */}
-            <Text
-                style={{
-                    fontWeight: 'bold',
-                    marginTop: 15,
-                    marginBottom: 5,
-                }}
-            >
-                Tasks
-            </Text>
-
-            <FlatList
-                data={tasks}
-                keyExtractor={(item) => item.id}
-                renderItem={renderTask}
-                scrollEnabled={false}
+            <AddButton
+                onAddTask={handleAddTask}
+                onAddEvent={handleAddEvent}
             />
-            <View style={{ marginTop: 10 }}>
-                <TextInput
-                    placeholder="New task..."
-                    value={newTaskText}
-                    onChangeText={setNewTaskText}
-                    style={{ borderWidth: 1, padding: 6 }}
-                />
-
-                <TouchableOpacity
-                    onPress={() => {
-                        if (!newTaskText.trim()) return;
-
-                        TaskService.createTask(id as string, {
-                            title: newTaskText,
-                            status: 'OPEN',
-                        });
-                        console.log("create task called");
-
-                        setNewTaskText('');
-                        loadLocal();
-                    }}
-                >
-                    <Text style={{ color: 'blue' }}>Add Task</Text>
-                </TouchableOpacity>
-            </View>
         </View>
     );
 }

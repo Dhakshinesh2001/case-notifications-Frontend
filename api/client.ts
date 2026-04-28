@@ -1,5 +1,7 @@
 import { getAuthToken } from './auth';
 import { setAuthTokenProvider } from './auth';
+// import { getOrgId } from './org';
+import { AuthService } from '../features/auth/auth.service';
 import { getOrgId } from './org';
 
 setAuthTokenProvider(async () => {
@@ -22,14 +24,14 @@ async function request(
   body?: any
 ) {
 
-  const token = await getAuthToken();
-
+  const token = await AuthService.getToken();
+  console.log("org ID:",getOrgId() );
   const res = await fetch(`${BASE_URL}${endpoint}`, {
     method,
     headers: {
       'Content-Type': 'application/json',
       Authorization: TOKEN ? `Bearer ${TOKEN}` : "",
-      'x-org-id': ORG_ID || "",
+      'x-org-id': ORG_ID || "",//TODO replace with getOrgId()
     },
     body: body ? JSON.stringify(body) : undefined,
   });

@@ -1,4 +1,5 @@
 import { apiClient } from './client';
+import { generateId } from '../utils/uuid';
 
 export const OrgAPI = {
   getOrgs: async () => {
@@ -11,9 +12,14 @@ export const OrgAPI = {
     return res.data || res;
   },
 
-  createOrg: async (data: any) => {
-    return apiClient.post('/org', data);
-  },
+ createOrg: async (data: any) => {
+    const id=generateId();
+  return apiClient.post('/org', {
+    id: id,
+    orgId: id,
+    name: data.name,
+  });
+},
 
   updateOrg: async (id: string, data: any) => {
     return apiClient.patch(`/org/${id}`, data);

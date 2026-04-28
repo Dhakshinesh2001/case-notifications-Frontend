@@ -2,8 +2,17 @@ import { db } from './database';
 
 export const runMigrations = () => {
   db.execSync(`
+    CREATE TABLE IF NOT EXISTS orgs (
+      id TEXT PRIMARY KEY NOT NULL,
+      name TEXT NOT NULL,
+      role TEXT,
+      createdAt TEXT NOT NULL,
+      updatedAt TEXT NOT NULL
+    );
+
     CREATE TABLE IF NOT EXISTS cases (
       id TEXT PRIMARY KEY NOT NULL,
+      orgId TEXT,
       title TEXT NOT NULL,
       description TEXT,
       caseNumber TEXT,
@@ -20,6 +29,7 @@ export const runMigrations = () => {
     CREATE TABLE IF NOT EXISTS case_events (
       id TEXT PRIMARY KEY NOT NULL,
       caseId TEXT NOT NULL,
+      orgId TEXT,
       type TEXT,
       content TEXT NOT NULL,
       metadata TEXT,
@@ -35,6 +45,7 @@ export const runMigrations = () => {
     CREATE TABLE IF NOT EXISTS tasks (
       id TEXT PRIMARY KEY NOT NULL,
       caseId TEXT NOT NULL,
+      orgId TEXT,
       eventId TEXT,
       title TEXT NOT NULL,
       description TEXT,
@@ -48,5 +59,9 @@ export const runMigrations = () => {
       deletedAt TEXT,
       lastFetchedAt TEXT
     );
+
+    CREATE INDEX IF NOT EXISTS idx_cases_orgId ON cases(orgId);
+    CREATE INDEX IF NOT EXISTS idx_tasks_orgId ON tasks(orgId);
+    CREATE INDEX IF NOT EXISTS idx_events_orgId ON case_events(orgId);
   `);
 };

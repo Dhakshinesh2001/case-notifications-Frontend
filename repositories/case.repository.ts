@@ -1,7 +1,7 @@
 // import { db } from '../db/database';
 import { SyncStatus } from './types';
 import { getDB } from '../db/provider';
-
+import { getOrgId } from '../api/org';
 const db = getDB();
 
 export type Case = {
@@ -11,6 +11,7 @@ export type Case = {
   caseNumber?: string;
   court?: string;
   status?: string;
+  orgId: string;
 
   createdAt: string;
   updatedAt: string;
@@ -24,13 +25,15 @@ export type Case = {
 
 export const CaseRepository = {
   createLocal: (data: Case) => {
+    const orgId = getOrgId();
     db.runSync(
       `INSERT INTO cases 
-      (id, title, description, caseNumber, court, status, createdAt, updatedAt, syncStatus, isSynced)
+      (id, title,orgId, description, caseNumber, court, status, createdAt, updatedAt, syncStatus, isSynced)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         data.id,
         data.title,
+        orgId,
         data.description ?? null,
         data.caseNumber ?? null,
         data.court ?? null,
@@ -44,6 +47,7 @@ export const CaseRepository = {
   },
 
   updateLocal: (id: string, updates: Partial<Case>) => {
+    const orgId = getOrgId();
     const now = new Date().toISOString();
 
     const fields = [];
@@ -78,25 +82,29 @@ export const CaseRepository = {
   },
 
   getById: (id: string): Case | null => {
-    const res = db.getAllSync(`SELECT * FROM cases WHERE id = ?`, [id]);
+    const orgId = getOrgId();
+    const res = db.getAllSync(`SELECT * FROM cases WHERE id = ? AND orgId = ?`, [id,orgId]);
     return (res[0] as Case) || null;
   },
 
   getAll: (): Case[] => {
+    const orgId = getOrgId();
     return db.getAllSync(
-      `SELECT * FROM cases WHERE deletedAt IS NULL ORDER BY createdAt DESC`
+      `SELECT * FROM cases WHERE deletedAt IS NULL AND orgId = ? ORDER BY createdAt DESC`, [orgId]
     ) as Case[];
   },
 
   getPending: (): Case[] => {
+    const orgId = getOrgId();
     return db.getAllSync(
-      `SELECT * FROM cases WHERE syncStatus = 'PENDING'`
+      `SELECT * FROM cases WHERE syncStatus = 'PENDING' AND orgId = ?`, [orgId]
     ) as Case[];
   },
 
   getFailed: (): Case[] => {
+    const orgId = getOrgId();
     return db.getAllSync(
-      `SELECT * FROM cases WHERE syncStatus = 'FAILED'`
+      `SELECT * FROM cases WHERE syncStatus = 'FAILED' AND orgId = ?`, [orgId]
     ) as Case[];
   },
 
@@ -122,13 +130,14 @@ export const CaseRepository = {
 
   upsertFromBackend: (data: any) => {
     const local = CaseRepository.getById(data.id);
-
+    const orgId = getOrgId();
     if (!local) {
       db.runSync(
         `INSERT INTO cases 
-        (id, title, description, caseNumber, court, status, createdAt, updatedAt, syncStatus, isSynced, lastFetchedAt)
+        (id,orgId, title, description, caseNumber, court, status, createdAt, updatedAt, syncStatus, isSynced, lastFetchedAt)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
+          orgId,
           data.id,
           data.title,
           data.description ?? null,
@@ -165,5 +174,16 @@ export const CaseRepository = {
         ]
       );
     }
+  },
+
+  markDeleted: (id: string) => {
+    const now = new Date().toISOString();
+
+    db.runSync(
+      `UPDATE cases 
+       SET deletedAt = ?, syncStatus = ?
+       WHERE id = ?`,
+      [now, 'PENDING', id]
+    );
   },
 };

@@ -1,36 +1,53 @@
-import { generateId } from '../../utils/uuid';
 import { EventRepository } from '../../repositories/event.repository';
 import { SyncService } from '../sync/sync.service';
+import { generateId } from '../../utils/uuid';
 
 export const EventService = {
-  createEvent: async (caseId: string, data: any) => {
-    const now = new Date().toISOString();
-    const id = generateId();
+  /**
+   * 📥 Get events for case
+   */
+  getEvents: (caseId: string) => {
+    return EventRepository.getByCase(caseId);
+  },
 
-    EventRepository.createLocal({
-      id,
+  /**
+   * ➕ Create event
+   */
+  createEvent: (caseId: string, data: any) => {
+    const now = new Date().toISOString();
+
+    const event = {
+      id: generateId(),
       caseId,
       ...data,
       createdAt: now,
       updatedAt: now,
       syncStatus: 'PENDING',
       isSynced: 0,
+    };
+
+    EventRepository.createLocal(event);
+    SyncService.syncAll();
+  },
+
+  /**
+   * ✏️ Update event
+   */
+  updateEvent: (id: string, updates: any) => {
+    EventRepository.updateLocal(id, {
+      ...updates,
+      updatedAt: new Date().toISOString(),
+      syncStatus: 'PENDING',
     });
 
-    SyncService.pushEvents();
+    SyncService.syncAll();
   },
 
-  updateEvent: async (id: string, updates: any) => {
-    EventRepository.updateLocal(id, updates);
-    SyncService.pushEvents();
-  },
-
-  deleteEvent: async (id: string) => {
-    EventRepository.softDelete(id);
-    SyncService.pushEvents();
-  },
-
-  getEvents: (caseId: string) => {
-    return EventRepository.getByCase(caseId);
+  /**
+   * 🗑️ Delete event
+   */
+  deleteEvent: (id: string) => {
+    EventRepository.markDeleted(id);
+    SyncService.syncAll();
   },
 };

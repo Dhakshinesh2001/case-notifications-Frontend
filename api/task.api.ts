@@ -1,12 +1,18 @@
 import { apiClient } from './client';
-import { SyncService } from '@/features/sync/sync.service';
 
 export const TaskAPI = {
+  /**
+   * 📥 Get tasks for a case
+   */
   getTasks: async (caseId: string) => {
     const res = await apiClient.get(`/task/${caseId}`);
     return res.data || res;
   },
 
+  /**
+   * ➕ Create task (PURE API CALL)
+   * ❗ No sync logic here
+   */
   createTask: async (
     caseId: string,
     data: {
@@ -19,13 +25,16 @@ export const TaskAPI = {
       eventId?: string;
     }
   ) => {
-    SyncService.pushCases();
-    console.log("taskAPI reached");
-    const x = await apiClient.post(`/task/${caseId}`, data);
-    console.log(x);
-    return apiClient.post(`/task/${caseId}`, data);
+    console.log("TaskAPI.createTask");
+
+    const res = await apiClient.post(`/task/${caseId}`, data);
+
+    return res.data || res;
   },
 
+  /**
+   * ✏️ Update task
+   */
   updateTask: async (
     taskId: string,
     data: Partial<{
@@ -37,13 +46,21 @@ export const TaskAPI = {
       eventId: string;
     }>
   ) => {
-    return apiClient.patch(`/task/${taskId}`, data);
+    const res = await apiClient.patch(`/task/${taskId}`, data);
+    return res.data || res;
   },
 
+  /**
+   * 🔄 Update only status
+   */
   updateTaskStatus: async (taskId: string, status: string) => {
-    return apiClient.patch(`/task/${taskId}/status`, { status });
+    const res = await apiClient.patch(`/task/${taskId}/status`, { status });
+    return res.data || res;
   },
 
+  /**
+   * 🗑️ Delete task
+   */
   deleteTask: async (taskId: string) => {
     return apiClient.delete(`/task/${taskId}`);
   },

@@ -85,6 +85,18 @@ export const TaskRepository = {
     );
   },
 
+  markDeleted: (id: string) => {
+    const now = new Date().toISOString();
+
+    db.runSync(
+      `UPDATE tasks 
+       SET deletedAt = ?, syncStatus = ?
+       WHERE id = ?`,
+      [now, 'PENDING', id]
+    );
+  },
+
+
   getById: (id: string): Task | null => {
     const res = db.getAllSync(`SELECT * FROM tasks WHERE id = ?`, [id]);
     return (res[0] as Task) || null;

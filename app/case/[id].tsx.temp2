@@ -1,0 +1,355 @@
+import { useEffect, useState } from 'react';
+import {
+    View,
+    Text,
+    FlatList,
+    TouchableOpacity,
+    TextInput,
+} from 'react-native';
+import { useLocalSearchParams } from 'expo-router';
+
+import { CaseService } from '../../features/case/case.service';
+import { EventService } from '../../features/event/event.service';
+import { TaskService } from '../../features/task/task.service';
+
+type Case = any;
+type CaseEvent = any;
+type Task = any;
+
+export default function CaseDetailScreen() {
+    const { id } = useLocalSearchParams();
+
+    const [caseData, setCaseData] = useState<Case | null>(null);
+    const [events, setEvents] = useState<CaseEvent[]>([]);
+    const [tasks, setTasks] = useState<Task[]>([]);
+
+    const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
+    const [editTitle, setEditTitle] = useState('');
+
+    const [isEditingCase, setIsEditingCase] = useState(false);
+    const [editCase, setEditCase] = useState<any>({});
+
+    const [newEventText, setNewEventText] = useState('');
+    const [newTaskText, setNewTaskText] = useState('');
+
+    useEffect(() => {
+        if (!id) return;
+
+        loadLocal();
+        syncRemote();
+    }, [id]);
+
+    const loadLocal = () => {
+        const c = CaseService.getCaseById(id as string);
+        const e = EventService.getEvents(id as string);
+        const t = TaskService.getTasks(id as string);
+
+        setCaseData(c);
+        setEvents(sortEvents(e));
+        setTasks(t);
+    };
+
+    const syncRemote = async () => {
+        const res = await CaseService.syncCase(id as string);
+
+        // if (res.conflict) {
+        //     console.log('⚠ Conflict resolved with server');
+        // }
+
+        loadLocal();
+    };
+
+    const sortEvents = (events: CaseEvent[]) => {
+        return events.sort(
+            (a, b) =>
+                new Date(a.eventDate).getTime() -
+                new Date(b.eventDate).getTime()
+        );
+    };
+
+    const getTaskColor = (status: string) => {
+        switch (status) {
+            case 'DONE':
+                return '#d4edda';
+            case 'IN_PROGRESS':
+                return '#fff3cd';
+            default:
+                return '#f8d7da';
+        }
+    };
+
+    const getEventById = (eventId?: string) => {
+        return events.find((e) => e.id === eventId);
+    };
+
+    const handleUpdateTask = (taskId: string) => {
+        TaskService.updateTask(taskId, { title: editTitle });
+        setEditingTaskId(null);
+        loadLocal();
+    };
+
+    const renderEvent = ({ item }: { item: CaseEvent }) => (
+        <TouchableOpacity
+            onLongPress={() => {
+                EventService.updateEvent(item.id, {
+                    content: item.content + ' (edited)',
+                });
+                loadLocal();
+            }}
+        >
+            <View
+                style={{
+                    marginBottom: 10,
+                    padding: 10,
+                    borderLeftWidth: 3,
+                    borderLeftColor: '#007bff',
+                    backgroundColor: '#f9f9f9',
+                }}
+            >
+                <Text style={{ fontWeight: 'bold' }}>{item.content}</Text>
+                <Text>{new Date(item.eventDate).toDateString()}</Text>
+            </View></TouchableOpacity>
+    );
+
+    const renderTask = ({ item }: { item: Task }) => {
+        const linkedEvent = getEventById(item.eventId);
+
+        return (
+            <View
+                style={{
+                    marginBottom: 10,
+                    padding: 10,
+                    borderRadius: 8,
+                    backgroundColor: getTaskColor(item.status),
+                }}
+            >
+                {editingTaskId === item.id ? (
+                    <>
+                        <TextInput
+                            value={editTitle}
+                            onChangeText={setEditTitle}
+                            style={{ borderWidth: 1, padding: 6 }}
+                        />
+                        <TouchableOpacity
+                            onPress={() => handleUpdateTask(item.id)}
+                        >
+                            <Text style={{ color: 'blue' }}>Save</Text>
+                        </TouchableOpacity>
+                        {events.map((e) => (
+                            <TouchableOpacity
+                                key={e.id}
+                                onPress={() => {
+                                    TaskService.updateTask(item.id, { eventId: e.id });
+                                    loadLocal();
+                                }}
+                            >
+                                <Text>{e.content}</Text>
+                            </TouchableOpacity>
+                        ))}
+                    </>
+                ) : (
+                    <>
+                        <Text style={{ fontWeight: 'bold' }}>
+                            {item.title}
+                        </Text>
+
+                        <Text>Status: {item.status}</Text>
+
+                        {linkedEvent && (
+                            <Text style={{ marginTop: 4 }}>
+                                🔗 Linked to: {linkedEvent.content}
+                            </Text>
+                        )}
+
+                        <View style={{ flexDirection: 'row', marginTop: 6 }}>
+                            <TouchableOpacity
+                                onPress={() => {
+                                    setEditingTaskId(item.id);
+                                    setEditTitle(item.title);
+                                }}
+                            >
+                                <Text style={{ color: 'blue', marginRight: 10 }}>
+                                    Edit
+                                </Text>
+                            </TouchableOpacity>
+
+                            <TouchableOpacity
+                                onPress={() => {
+                                    TaskService.deleteTask(item.id);
+                                    loadLocal();
+                                }}
+                            >
+                                <Text style={{ color: 'red' }}>Delete</Text>
+                            </TouchableOpacity>
+                            <View style={{ flexDirection: 'row', marginTop: 5 }}>
+                                {['OPEN', 'IN_PROGRESS', 'DONE'].map((s) => (
+                                    <TouchableOpacity
+                                        key={s}
+                                        onPress={() => {
+                                            TaskService.updateTaskStatus(item.id, s);
+                                            loadLocal();
+                                        }}
+                                    >
+                                        <Text style={{ marginRight: 10 }}>{s}</Text>
+                                    </TouchableOpacity>
+                                ))}
+                            </View>
+                        </View>
+                    </>
+                )}
+            </View>
+        );
+    };
+
+    if (!caseData) {
+        return (
+            <View style={{ padding: 20 }}>
+                <Text>Loading...</Text>
+            </View>
+        );
+    }
+
+    return (
+        <View style={{ padding: 12 }}>
+            {/* 🔹 CASE HEADER */}
+            <View style={{ marginBottom: 15 }}>
+                {isEditingCase ? (
+                    <>
+                        <TextInput
+                            value={editCase.title}
+                            onChangeText={(t) =>
+                                setEditCase({ ...editCase, title: t })
+                            }
+                            style={{ borderWidth: 1, marginBottom: 5 }}
+                        />
+
+                        <TextInput
+                            value={editCase.caseNumber}
+                            onChangeText={(t) =>
+                                setEditCase({ ...editCase, caseNumber: t })
+                            }
+                            style={{ borderWidth: 1, marginBottom: 5 }}
+                        />
+
+                        <TextInput
+                            value={editCase.court}
+                            onChangeText={(t) =>
+                                setEditCase({ ...editCase, court: t })
+                            }
+                            style={{ borderWidth: 1, marginBottom: 5 }}
+                        />
+
+                        <TouchableOpacity
+                            onPress={() => {
+                                CaseService.updateCase(id as string, editCase);
+                                setIsEditingCase(false);
+                                loadLocal();
+                            }}
+                        >
+                            <Text style={{ color: 'blue' }}>Save</Text>
+                        </TouchableOpacity>
+                    </>
+                ) : (
+                    <>
+                        <Text style={{ fontSize: 20, fontWeight: 'bold' }}>
+                            {caseData.title}
+                        </Text>
+
+                        <Text>Case #: {caseData.caseNumber || '-'}</Text>
+                        <Text>Status: {caseData.status || 'Pending'}</Text>
+                        <Text>Court: {caseData.court || '-'}</Text>
+
+                        <TouchableOpacity
+                            onPress={() => {
+                                setEditCase(caseData);
+                                setIsEditingCase(true);
+                            }}
+                        >
+                            <Text style={{ color: 'blue' }}>Edit</Text>
+                        </TouchableOpacity>
+                    </>
+                )}
+            </View>
+
+            {/* 🔹 EVENTS */}
+            <Text style={{ fontWeight: 'bold', marginBottom: 5 }}>
+                Events
+            </Text>
+
+            <FlatList
+                data={events}
+                keyExtractor={(item) => item.id}
+                renderItem={renderEvent}
+                scrollEnabled={false}
+            />
+            <View style={{ marginTop: 10 }}>
+                <TextInput
+                    placeholder="New event..."
+                    value={newEventText}
+                    onChangeText={setNewEventText}
+                    style={{ borderWidth: 1, padding: 6 }}
+                />
+
+                <TouchableOpacity
+                    onPress={() => {
+                        if (!newEventText.trim()) return;
+
+                        EventService.createEvent(id as string, {
+                            content: newEventText,
+                            eventDate: new Date().toISOString(),
+                        });
+
+                        setNewEventText('');
+                        loadLocal();
+                    }}
+                >
+                    <Text style={{ color: 'blue' }}>Add Event</Text>
+                </TouchableOpacity>
+            </View>
+
+            {/* 🔹 TASKS */}
+            <Text
+                style={{
+                    fontWeight: 'bold',
+                    marginTop: 15,
+                    marginBottom: 5,
+                }}
+            >
+                Tasks
+            </Text>
+
+            <FlatList
+                data={tasks}
+                keyExtractor={(item) => item.id}
+                renderItem={renderTask}
+                scrollEnabled={false}
+            />
+            <View style={{ marginTop: 10 }}>
+                <TextInput
+                    placeholder="New task..."
+                    value={newTaskText}
+                    onChangeText={setNewTaskText}
+                    style={{ borderWidth: 1, padding: 6 }}
+                />
+
+                <TouchableOpacity
+                    onPress={() => {
+                        if (!newTaskText.trim()) return;
+
+                        TaskService.createTask(id as string, {
+                            title: newTaskText,
+                            status: 'OPEN',
+                        });
+                        console.log("create task called");
+
+                        setNewTaskText('');
+                        
+                        loadLocal();
+                    }}
+                >
+                    <Text style={{ color: 'blue' }}>Add Task</Text>
+                </TouchableOpacity>
+            </View>
+        </View>
+    );
+}

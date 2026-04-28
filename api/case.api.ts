@@ -20,6 +20,7 @@ export const CaseAPI = {
     status?: string;
     metadata?: string;
   }) => {
+    console.log("inside create case");
     return apiClient.post('/case', data);
   },
 
@@ -34,6 +35,7 @@ export const CaseAPI = {
       metadata: string;
     }>
   ) => {
+    console.log("inside update cases");
     return apiClient.patch(`/case/${id}`, data);
   },
 

@@ -79,6 +79,17 @@ export const EventRepository = {
     );
   },
 
+  markDeleted: (id: string) => {
+    const now = new Date().toISOString();
+
+    db.runSync(
+      `UPDATE case_events 
+       SET deletedAt = ?, syncStatus = ?
+       WHERE id = ?`,
+      [now, 'PENDING', id]
+    );
+  },
+
   getById: (id: string): CaseEvent | null => {
     const res = db.getAllSync(`SELECT * FROM case_events WHERE id = ?`, [id]);
     return (res[0] as CaseEvent) || null;
