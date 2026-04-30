@@ -8,13 +8,23 @@ import { TaskAPI } from '../../api/task.api';
 import { SyncAPI } from '../../api/sync.api';
 
 import { AppStatusActions } from '../../hooks/useAppStatus';
-import { getOrgId } from '../../api/org';
+// import { getOrgId } from '../../api/org';
+import { orgRepository } from '@/repositories/org.repository';
 
 export const SyncService = {
-  // 🔁 GLOBAL SYNC
+  // 🔁 GLOBAL SYNC 
   syncAll: async () => {
     console.log("syncAll called");
-     const orgId = getOrgId();
+     const currentOrg = orgRepository.currentOrg();
+const orgId = currentOrg?.id;
+
+console.log("orgID in sync service:", orgId);
+
+if (!orgId) {
+  console.log("Skipping sync: no org selected");
+  return;
+}
+     console.log("orgID in sync service:",orgId);
     if (!orgId) {
     console.log("Skipping sync: no org selected");
     return;
@@ -48,7 +58,9 @@ export const SyncService = {
     console.log("pullAll called");
 
     try {
+        // console.log("pull all data123:");
       const data = await SyncAPI.sync();
+    //   console.log("pull all data:", data);
 
       const safe = (arr: any) =>
         Array.isArray(arr) ? arr : arr?.data || [];
@@ -56,15 +68,18 @@ export const SyncService = {
       const cases = safe(data.cases);
       const events = safe(data.events);
       const tasks = safe(data.tasks);
-
+      const orgs = safe(data.orgs);
+      console.log("inside pullALL22:", orgs);
+console.log("beforeorgfetch");
       cases.forEach((c: any) => {
         if (c.deletedAt) {
+            console.log("beforeorgfetch11");
           CaseRepository.removeDeleted(c.id);
-        } else {
+        } else {console.log("beforeorgfetch22");
           CaseRepository.upsertFromBackend(c);
         }
       });
-
+console.log("beforeveetch");
       events.forEach((e: any) => {
         if (e.deletedAt) {
           EventRepository.removeDeleted(e.id);
@@ -80,6 +95,13 @@ export const SyncService = {
           TaskRepository.upsertFromBackend(t);
         }
       });
+      console.log("beforeorgfetch");
+      orgs.forEach((o: any) => {
+        console.log("o in pull all",o);
+        orgRepository.upsertFromBackend(o);
+      });
+
+      
 
     } catch (err) {
       console.log("Pull sync failed", err);

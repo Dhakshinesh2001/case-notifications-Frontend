@@ -8,6 +8,12 @@ import CaseCard from '../../components/CaseCard';
 
 import { subscribeOrg } from '../../api/org';
 
+import { router } from 'expo-router';
+import { TouchableOpacity } from 'react-native';
+
+import { useFocusEffect } from 'expo-router';
+import { useCallback } from 'react';
+
 type Case = any;
 
 export default function CasesScreen() {
@@ -58,6 +64,12 @@ export default function CasesScreen() {
 
   }, []);
 
+  useFocusEffect(
+  useCallback(() => {
+    loadCases();
+  }, [])
+);
+
   const loadInitial = async () => {
     setLoading(true);
 
@@ -99,19 +111,58 @@ export default function CasesScreen() {
         </Text>
 
         <Text>Create your first case to get started</Text>
+        <TouchableOpacity
+    onPress={() => router.push('/case/create')}
+    style={{
+      position: 'absolute',
+      bottom: 20,
+      right: 20,
+      backgroundColor: '#000',
+      width: 56,
+      height: 56,
+      borderRadius: 28,
+      justifyContent: 'center',
+      alignItems: 'center',
+      elevation: 4,
+    }}
+  >
+    <Text style={{ color: '#fff', fontSize: 28 }}>+</Text>
+  </TouchableOpacity>
       </View>
     );
   }
 
   // 📋 List
   return (
-    <FlatList
-      data={cases}
-      keyExtractor={(item) => item.id}
-      renderItem={renderCase}
-      contentContainerStyle={{ padding: 12 }}
-      refreshing={refreshing}
-      onRefresh={onRefresh}
-    />
+
+   <View style={{ flex: 1 }}>
+  <FlatList
+    data={cases}
+    keyExtractor={(item) => item.id}
+    renderItem={renderCase}
+    contentContainerStyle={{ padding: 12 }}
+    refreshing={refreshing}
+    onRefresh={onRefresh}
+  />
+
+  {/* ➕ FLOATING BUTTON */}
+  <TouchableOpacity
+    onPress={() => router.push('/case/create')}
+    style={{
+      position: 'absolute',
+      bottom: 20,
+      right: 20,
+      backgroundColor: '#000',
+      width: 56,
+      height: 56,
+      borderRadius: 28,
+      justifyContent: 'center',
+      alignItems: 'center',
+      elevation: 4,
+    }}
+  >
+    <Text style={{ color: '#fff', fontSize: 28 }}>+</Text>
+  </TouchableOpacity>
+</View>
   );
 }

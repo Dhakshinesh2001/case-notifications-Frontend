@@ -4,44 +4,29 @@ import { Header } from '../components/Header';
 import { DrawerContent } from '../components/DrawerContent';
 import { OfflineBanner } from '../components/OfflineBanner';
 import { useEffect } from 'react';
-import { SyncService } from '@/features/sync/sync.service';
-import { useOrg } from '@/hooks/useOrg';
-// import { ClerkProvider } from '@clerk/clerk-expo';
-// import { useAppStatus } from '@/hooks/useAppStatus';
+import { OrgProvider } from '@/providers/OrgProvider';
 
-// const title =  "hihi";
 export default function RootLayout() {
-
-   useEffect(() => {
-    runMigrations(); // 🔥 MUST RUN FIRST
+  useEffect(() => {
+    runMigrations(); // 🔥 run once on app start
   }, []);
 
-  const { orgId } = useOrg();
-
-useEffect(() => {
-  if (!orgId) return;
-
-  SyncService.syncAll();
-}, [orgId]);
-
-// const { isOnline, isSyncing, hasFailed } = useAppStatus();
   return (
-    // <ClerkProvider publishableKey="YOUR_PUBLISHABLE_KEY">
-    <Drawer
-      drawerContent={(props: any) => <DrawerContent {...props} />}
-      screenOptions={{
-        
-        header: ({ navigation, route }) => (
-          <>
-            <Header
-              title={route.name}
-              // title={title}
-              openDrawer={navigation.openDrawer}
-            />
-            <OfflineBanner />
-          </>
-        ),
-      }}
-    />
+    <OrgProvider>
+      <Drawer
+        drawerContent={(props: any) => <DrawerContent {...props} />}
+        screenOptions={{
+          header: ({ navigation, route }) => (
+            <>
+              <Header
+                title={route.name}
+                openDrawer={navigation.openDrawer}
+              />
+              <OfflineBanner />
+            </>
+          ),
+        }}
+      />
+    </OrgProvider>
   );
 }

@@ -11,6 +11,9 @@ import CaseHeader from '@/components/case/CaseHeader';
 import TimelineItem from '@/components/case/TimelineItem';
 import AddButton from '@/components/case/AddButton';
 
+import { useFocusEffect } from 'expo-router';
+import { useCallback } from 'react';
+
 export default function CaseDetailScreen() {
     const { id } = useLocalSearchParams();
 
@@ -31,6 +34,16 @@ export default function CaseDetailScreen() {
         loadData();
         SyncService.syncAll().then(loadData);
     }, []);
+
+    useFocusEffect(
+  useCallback(() => {
+    return () => {
+      // 🔥 cleanup when leaving screen
+      setTasks((prev) => prev.filter((t) => !t.isTemp));
+      setEvents((prev) => prev.filter((e) => !e.isTemp));
+    };
+  }, [])
+);
 
     // 🧠 timeline builder
     const buildTimeline = () => {
@@ -82,25 +95,32 @@ export default function CaseDetailScreen() {
         setExpandedId(null); // 🔥 reset all cards
     };
 
-    const handleAddTask = () => {
-        TaskService.createTask(id as string, {
-            title: 'New Task',
-            status: 'OPEN',
-        });
-        loadData();
-    };
+   const handleAddTask = () => {
+  const tempTask = {
+    id: `temp_task_${Date.now()}`,
+    title: '',
+    status: 'OPEN',
+    isTemp: true,
+    createdAt: new Date().toISOString(),
+  };
 
-    const handleAddEvent = () => {
-  const newId = EventService.createEvent(id as string, {
-    content: 'New Event',
+  setTasks((prev) => [tempTask, ...prev]);
+  setExpandedId(`task_${tempTask.id}`);
+};
+    
+
+  const handleAddEvent = () => {
+  const tempEvent = {
+    id: `temp_event_${Date.now()}`,
+    content: '',
     type: 'GENERAL',
     eventDate: new Date().toISOString(),
-  });
+    isTemp: true,
+  };
 
-  setExpandedId(`event_${newId}`); // 🔥 THIS is the real fix
-  loadData();
+  setEvents((prev) => [tempEvent, ...prev]);
+  setExpandedId(`event_${tempEvent.id}`);
 };
-
     if (!caseData) return <Text>Loading...</Text>;
 
     return (

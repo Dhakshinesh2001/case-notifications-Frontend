@@ -1,38 +1,41 @@
 import { View, Text, TouchableOpacity } from 'react-native';
-import { useOrg } from '../hooks/useOrg';
-import { SyncService } from '../features/sync/sync.service';
+import { useOrg } from '@/providers/OrgProvider';
+import { orgRepository } from '@/repositories/org.repository';
 
 export const DrawerContent = ({ navigation }: any) => {
-  const { orgId, setOrgId } = useOrg();
+  const { orgId, switchOrg } = useOrg();
 
-  const orgs = [
-    { id: 'org1', name: 'My Firm' },
-    { id: 'org2', name: 'Second Org' },
-  ];
-
-  const switchOrg = async (id: string) => {
-    await setOrgId(id);
-    await SyncService.syncAll();
-  };
+  // 🔥 Load orgs from DB (not hardcoded)
+  const orgs = orgRepository.getOrgs();
 
   return (
     <View style={{ padding: 20 }}>
-      <Text style={{ fontWeight: 'bold' }}>Organization</Text>
+      <Text style={{ fontWeight: 'bold', marginBottom: 10 }}>
+        Organization
+      </Text>
 
-      {orgs.map((org) => (
-        <TouchableOpacity
-          key={org.id}
-          onPress={() => switchOrg(org.id)}
-        >
-          <Text style={{
-            padding: 8,
-            backgroundColor: org.id === orgId ? '#ddd' : 'transparent'
-          }}>
-            {org.name}
-          </Text>
-        </TouchableOpacity>
-      ))}
+      {orgs.map((org) => {
+        const isActive = org.id === orgId;
 
+        return (
+          <TouchableOpacity
+            key={org.id}
+            onPress={() => switchOrg(org.id)} // 🔥 clean
+          >
+            <Text
+              style={{
+                padding: 10,
+                borderRadius: 6,
+                backgroundColor: isActive ? '#ddd' : 'transparent',
+              }}
+            >
+              {org.name} {isActive ? '✓' : ''}
+            </Text>
+          </TouchableOpacity>
+        );
+      })}
+
+      {/* Navigation */}
       <View style={{ marginTop: 20 }}>
         <TouchableOpacity onPress={() => navigation.navigate('cases')}>
           <Text>📁 Cases</Text>

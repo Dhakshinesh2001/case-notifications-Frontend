@@ -1,6 +1,8 @@
 import { OrgAPI } from '../../api/org.api';
-import { setOrgId } from '../../api/org';
+// import { setOrgId } from '../../api/org';
 import { SyncService } from '../sync/sync.service';
+import { generateId } from '@/utils/uuid';
+import { orgRepository } from '@/repositories/org.repository';
 // import { generateId } from '../../utils/uuid';
 
 export const OrgService = {
@@ -17,6 +19,17 @@ export const OrgService = {
     role: o.role,
   }))},
 
+  getCurrentOrg: async () => {
+  const res = orgRepository.currentOrg();
+  console.log("res in org ser:", res);
+  const data = res.data || res;
+
+  return data.map((o: any) => ({
+    id: o.orgId,
+    name: o.org.name,
+    role: o.role,
+  }))},
+
 
   /**
    * 🔄 Switch org
@@ -24,7 +37,8 @@ export const OrgService = {
    * - triggers sync
    */
   switchOrg: async (orgId: string) => {
-    setOrgId(orgId);
+    // setOrgId(orgId);
+    orgRepository.changeOrg(orgId);
     await SyncService.syncAll();
   },
 
@@ -32,6 +46,35 @@ export const OrgService = {
    * ➕ Create new org
    */
   createOrg: async (data: { name: string }) => {
-    return await OrgAPI.createOrg(data);
+    console.log("inside create org1");
+    const now = new Date().toISOString();
+    const newOrg = {
+        id: generateId(),
+        ...data,
+        createdAt: now,
+        updatedAt: now,
+        syncStatus: 'PENDING',
+        isSynced: 0,
+      };
+      console.log("inside create org2");
+      orgRepository.createLocal(newOrg);
+    return await OrgAPI.createOrg(newOrg);
   },
+//   createCase: (data: any) => {
+//       const now = new Date().toISOString();
+  
+//       const newCase = {
+//         id: generateId(),
+//         ...data,
+//         createdAt: now,
+//         updatedAt: now,
+//         syncStatus: 'PENDING',
+//         isSynced: 0,
+//       };
+  
+//       CaseRepository.createLocal(newCase);
+  
+//       // 🔄 Trigger background sync
+//       SyncService.syncAll();
+//     },
 };

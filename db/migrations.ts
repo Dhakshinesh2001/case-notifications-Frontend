@@ -7,7 +7,9 @@ export const runMigrations = () => {
       name TEXT NOT NULL,
       role TEXT,
       createdAt TEXT NOT NULL,
-      updatedAt TEXT NOT NULL
+      updatedAt TEXT NOT NULL,
+      deletedAt TEXT,
+      isCurrentOrg INTEGER DEFAULT 0
     );
 
     CREATE TABLE IF NOT EXISTS cases (

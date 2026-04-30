@@ -1,29 +1,35 @@
-import { useEffect, useState } from 'react';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { setOrgId as setGlobalOrgId } from '../api/org';
+// import { useEffect, useState } from 'react';
+// import * as GlobalOrg from '../api/org'; // Import your global file
+// import { orgRepository } from '../repositories/org.repository';
 
-const STORAGE_KEY = 'CURRENT_ORG_ID';
+// export const useOrg = () => {
+//   // Initialize from global state so components starting up stay in sync
+//   const [orgId, setOrgIdState] = useState<string | null>(GlobalOrg.getOrgId());
 
-export const useOrg = () => {
-  const [orgId, setOrgIdState] = useState<string | null>(null);
+//   useEffect(() => {
+//     // 1. On mount, try to find the active org in DB
+//     const current = orgRepository.currentOrg();
+//     if (current) {
+//       syncStates(current.id);
+//     }
 
-  useEffect(() => {
-    loadOrg();
-  }, []);
+//     // 2. Subscribe to global changes (in case another part of the app calls setOrgId)
+//     const unsubscribe = GlobalOrg.subscribeOrg((id) => {
+//       setOrgIdState(id);
+//     });
 
-  const loadOrg = async () => {
-    const stored = await AsyncStorage.getItem(STORAGE_KEY);
-    if (stored) {
-      setOrgIdState(stored);
-      setGlobalOrgId(stored);
-    }
-  };
+//     return unsubscribe;
+//   }, []);
 
-  const setOrgId = async (id: string) => {
-    await AsyncStorage.setItem(STORAGE_KEY, id);
-    setOrgIdState(id);
-    setGlobalOrgId(id);
-  };
+//   const syncStates = (id: string | null) => {
+//     setOrgIdState(id);          // Updates current component
+//     GlobalOrg.setOrgId(id!);    // Updates global variable for API calls
+//   };
 
-  return { orgId, setOrgId };
-};
+//   const setOrgId = (id: string) => {
+//     orgRepository.changeOrg(id); // Persistence (SQLite)
+//     syncStates(id);              // Memory (Global + React)
+//   };
+
+//   return { orgId, setOrgId };
+// };

@@ -8,14 +8,28 @@ const CURRENT_USER_ID = 'me';
 export default function TaskCard({ task, onUpdate,isOpen,
   onToggle }: any) {
   const isNew = task.title === 'New Task';
+  const isTemp = task.isTemp;
 //   const [open, setOpen] = useState(isNew);
 
   const isMine = task.assignedTo === CURRENT_USER_ID;
 
   const update = (field: string, value: string) => {
-    TaskService.updateTask(task.id, { [field]: value });
+  if (isTemp) {
+    // 🔥 FIRST EDIT → CREATE REAL TASK
+    if (!value?.trim()) return;
+
+    const newId = TaskService.createTask(task.caseId, {
+      title: value,
+      status: 'OPEN',
+    });
+
     onUpdate?.();
-  };
+    return;
+  }
+
+  TaskService.updateTask(task.id, { [field]: value });
+  onUpdate?.();
+};
 
   const updateStatus = (status: string) => {
     TaskService.updateTaskStatus(task.id, status);

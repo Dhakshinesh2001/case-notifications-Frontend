@@ -1,12 +1,13 @@
-// import { db } from '../db/database';
 import { SyncStatus } from './types';
 import { getDB } from '../db/provider';
+import { getOrgId } from '../api/org';
 
 const db = getDB();
 
 export type CaseEvent = {
   id: string;
   caseId: string;
+  orgId: string; // 🔥 added
 
   type?: string;
   content: string;
@@ -26,13 +27,16 @@ export type CaseEvent = {
 
 export const EventRepository = {
   createLocal: (data: CaseEvent) => {
+    const orgId = getOrgId();
+
     db.runSync(
       `INSERT INTO case_events 
-      (id, caseId, type, content, metadata, eventDate, createdAt, updatedAt, syncStatus, isSynced)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      (id, caseId, orgId, type, content, metadata, eventDate, createdAt, updatedAt, syncStatus, isSynced)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         data.id,
         data.caseId,
+        orgId,
         data.type ?? null,
         data.content,
         data.metadata ?? null,
@@ -68,17 +72,6 @@ export const EventRepository = {
     );
   },
 
-  softDelete: (id: string) => {
-    const now = new Date().toISOString();
-
-    db.runSync(
-      `UPDATE case_events 
-       SET deletedAt = ?, syncStatus = ?
-       WHERE id = ?`,
-      [now, 'PENDING', id]
-    );
-  },
-
   markDeleted: (id: string) => {
     const now = new Date().toISOString();
 
@@ -91,26 +84,53 @@ export const EventRepository = {
   },
 
   getById: (id: string): CaseEvent | null => {
-    const res = db.getAllSync(`SELECT * FROM case_events WHERE id = ?`, [id]);
+    const orgId = getOrgId();
+
+    const res = db.getAllSync(
+      `SELECT * FROM case_events WHERE id = ? AND orgId = ?`,
+      [id, orgId]
+    );
+
     return (res[0] as CaseEvent) || null;
   },
 
+  getByIdGlobal: (id: string): CaseEvent | null => {
+  const res = db.getAllSync(
+    `SELECT * FROM case_events WHERE id = ?`,
+    [id]
+  );
+
+  return (res[0] as CaseEvent) || null;
+},
+
   getByCase: (caseId: string): CaseEvent[] => {
+    const orgId = getOrgId();
+
     return db.getAllSync(
-      `SELECT * FROM case_events WHERE caseId = ? AND deletedAt IS NULL ORDER BY eventDate ASC`,
-      [caseId]
+      `SELECT * FROM case_events 
+       WHERE caseId = ? AND orgId = ? AND deletedAt IS NULL 
+       ORDER BY eventDate ASC`,
+      [caseId, orgId]
     ) as CaseEvent[];
   },
 
   getPending: (): CaseEvent[] => {
+    const orgId = getOrgId();
+
     return db.getAllSync(
-      `SELECT * FROM case_events WHERE syncStatus = 'PENDING'`
+      `SELECT * FROM case_events 
+       WHERE syncStatus = 'PENDING' AND orgId = ?`,
+      [orgId]
     ) as CaseEvent[];
   },
 
   getFailed: (): CaseEvent[] => {
+    const orgId = getOrgId();
+
     return db.getAllSync(
-      `SELECT * FROM case_events WHERE syncStatus = 'FAILED'`
+      `SELECT * FROM case_events 
+       WHERE syncStatus = 'FAILED' AND orgId = ?`,
+      [orgId]
     ) as CaseEvent[];
   },
 
@@ -135,16 +155,19 @@ export const EventRepository = {
   },
 
   upsertFromBackend: (data: any) => {
-    const local = EventRepository.getById(data.id);
+    const orgId = getOrgId();
+
+    const local = EventRepository.getByIdGlobal(data.id);
 
     if (!local) {
       db.runSync(
         `INSERT INTO case_events 
-        (id, caseId, type, content, metadata, eventDate, createdAt, updatedAt, syncStatus, isSynced, lastFetchedAt)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        (id, caseId, orgId, type, content, metadata, eventDate, createdAt, updatedAt, syncStatus, isSynced, lastFetchedAt)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           data.id,
           data.caseId,
+          orgId,
           data.type ?? null,
           data.content,
           JSON.stringify(data.metadata ?? {}),
@@ -164,7 +187,7 @@ export const EventRepository = {
         `UPDATE case_events SET
           type = ?, content = ?, metadata = ?, eventDate = ?,
           updatedAt = ?, lastFetchedAt = ?, syncStatus = ?, isSynced = ?
-         WHERE id = ?`,
+         WHERE id = ? AND orgId = ?`,
         [
           data.type ?? null,
           data.content,
@@ -175,6 +198,7 @@ export const EventRepository = {
           'SYNCED',
           1,
           data.id,
+          orgId,
         ]
       );
     }

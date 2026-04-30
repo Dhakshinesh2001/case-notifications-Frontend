@@ -25,11 +25,15 @@ export type Case = {
 
 export const CaseRepository = {
   createLocal: (data: Case) => {
+
+    console.log("all orgsgsss",db.getAllSync(
+      `SELECT * FROM orgs`));
     const orgId = getOrgId();
+    
     db.runSync(
       `INSERT INTO cases 
-      (id, title,orgId, description, caseNumber, court, status, createdAt, updatedAt, syncStatus, isSynced)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      (id, title,orgId, description, caseNumber, court, status, createdAt, updatedAt, syncStatus,isSynced)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         data.id,
         data.title,
@@ -41,7 +45,7 @@ export const CaseRepository = {
         data.createdAt,
         data.updatedAt,
         'PENDING',
-        0,
+        data.isSynced,
       ]
     );
   },
@@ -88,7 +92,9 @@ export const CaseRepository = {
   },
 
   getAll: (): Case[] => {
+
     const orgId = getOrgId();
+    console.log("inside case.repo.ts:", orgId,"dfskf");
     return db.getAllSync(
       `SELECT * FROM cases WHERE deletedAt IS NULL AND orgId = ? ORDER BY createdAt DESC`, [orgId]
     ) as Case[];
@@ -131,21 +137,24 @@ export const CaseRepository = {
   upsertFromBackend: (data: any) => {
     const local = CaseRepository.getById(data.id);
     const orgId = getOrgId();
+    const now = new Date().toISOString();
     if (!local) {
+      console.log("localcase",local);
       db.runSync(
         `INSERT INTO cases 
         (id,orgId, title, description, caseNumber, court, status, createdAt, updatedAt, syncStatus, isSynced, lastFetchedAt)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
-          orgId,
+          
           data.id,
+          orgId,
           data.title,
           data.description ?? null,
           data.caseNumber ?? null,
           data.court ?? null,
           data.status ?? null,
           data.createdAt,
-          data.updatedAt,
+          data.updatedAt ?? now, 
           'SYNCED',
           1,
           new Date().toISOString(),

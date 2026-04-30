@@ -4,6 +4,7 @@ import { generateId } from '../utils/uuid';
 export const OrgAPI = {
   getOrgs: async () => {
     const res = await apiClient.get('/org');
+    console.log(res.data || res);
     return res.data || res;
   },
 
@@ -13,10 +14,10 @@ export const OrgAPI = {
   },
 
  createOrg: async (data: any) => {
-    const id=generateId();
+    // const id=generateId();
   return apiClient.post('/org', {
-    id: id,
-    orgId: id,
+    id: data.id,
+    orgId: data.id,
     name: data.name,
   });
 },

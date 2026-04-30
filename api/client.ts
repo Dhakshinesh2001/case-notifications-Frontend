@@ -12,8 +12,8 @@ const BASE_URL = process.env.EXPO_PUBLIC_API_URL;
 
 // 🔒 TEMP (later replace with Clerk)
 const TOKEN = "your_test_token";
-// const ORG_ID = getOrgId() as string;
-const ORG_ID = '86c9be4f-50cd-4616-b49d-91120b112f38'; //TODO remove this line
+const ORG_ID = getOrgId() as string;
+// const ORG_ID = '86c9be4f-50cd-4616-b49d-91120b112f38'; //TODO remove this line
 
 
 type Method = 'GET' | 'POST' | 'PATCH' | 'DELETE';
@@ -31,7 +31,7 @@ async function request(
     headers: {
       'Content-Type': 'application/json',
       Authorization: TOKEN ? `Bearer ${TOKEN}` : "",
-      'x-org-id': ORG_ID || "",//TODO replace with getOrgId()
+      'x-org-id': getOrgId() || "",//TODO replace with getOrgId()
     },
     body: body ? JSON.stringify(body) : undefined,
   });

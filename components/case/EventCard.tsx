@@ -16,10 +16,25 @@ export default function EventCard({
   const isNew = event.content === 'New Event';
 //   const [open, setOpen] = useState(isNew);
 
-  const update = (field: string, value: string) => {
-    EventService.updateEvent(event.id, { [field]: value });
+  const isTemp = event.isTemp;
+
+const update = (field: string, value: string) => {
+  if (isTemp) {
+    if (!value?.trim()) return;
+
+    const newId = EventService.createEvent(event.caseId, {
+      content: value,
+      type: 'GENERAL',
+      eventDate: new Date().toISOString(),
+    });
+
     onUpdate?.();
-  };
+    return;
+  }
+
+  EventService.updateEvent(event.id, { [field]: value });
+  onUpdate?.();
+};
 
   return (
     <View
