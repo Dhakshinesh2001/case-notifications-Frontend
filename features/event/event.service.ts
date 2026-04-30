@@ -15,6 +15,7 @@ export const EventService = {
    */
   createEvent: (caseId: string, data: any) => {
     const now = new Date().toISOString();
+    console.log("caseID:", caseId);
 
     const event = {
       id: generateId(),
@@ -27,7 +28,7 @@ export const EventService = {
     };
 
     EventRepository.createLocal(event);
-    SyncService.syncAll();
+    SyncService.syncNow();
   },
 
   /**
@@ -40,7 +41,7 @@ export const EventService = {
       syncStatus: 'PENDING',
     });
 
-    SyncService.syncAll();
+    SyncService.syncNow();
   },
 
   /**
@@ -48,6 +49,6 @@ export const EventService = {
    */
   deleteEvent: (id: string) => {
     EventRepository.markDeleted(id);
-    SyncService.syncAll();
+    SyncService.syncNow();
   },
 };

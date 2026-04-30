@@ -39,7 +39,7 @@ export const CaseService = {
     CaseRepository.createLocal(newCase);
 
     // 🔄 Trigger background sync
-    SyncService.syncAll();
+    SyncService.scheduleSync();
   },
 
   /**
@@ -52,7 +52,7 @@ export const CaseService = {
       syncStatus: 'PENDING',
     });
 
-    SyncService.syncAll();
+    SyncService.scheduleSync();
   },
 
   /**
@@ -60,7 +60,7 @@ export const CaseService = {
    */
   deleteCase: (id: string) => {
     CaseRepository.markDeleted(id);
-    SyncService.syncAll();
+    SyncService.scheduleSync();
   },
 
   /**

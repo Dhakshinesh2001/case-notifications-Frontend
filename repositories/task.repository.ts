@@ -1,6 +1,7 @@
 import { SyncStatus } from './types';
 import { getDB } from '../db/provider';
-import { getOrgId } from '../api/org';
+// import { getOrgId } from '../api/org';
+import { orgRepository } from './org.repository';
 
 const db = getDB();
 
@@ -28,10 +29,10 @@ export type Task = {
 
 export const TaskRepository = {
   createLocal: (data: Task) => {
-    const orgId = getOrgId();
-
+    const currentOrg = orgRepository.currentOrg();
+const orgId = currentOrg?.id;
     db.runSync(
-      `INSERT OR REPLACE tasks 
+      `INSERT OR REPLACE INTO tasks 
       (id, caseId, orgId, eventId, title, description, status, priority, dueDate, createdAt, updatedAt, syncStatus, isSynced)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
@@ -87,8 +88,8 @@ export const TaskRepository = {
   },
 
   getById: (id: string): Task | null => {
-    const orgId = getOrgId();
-
+   const currentOrg = orgRepository.currentOrg();
+const orgId = currentOrg?.id;
     const res = db.getAllSync(
       `SELECT * FROM tasks WHERE id = ? AND orgId = ?`,
       [id, orgId]
@@ -107,7 +108,8 @@ export const TaskRepository = {
 },
 
   getByCase: (caseId: string): Task[] => {
-    const orgId = getOrgId();
+    const currentOrg = orgRepository.currentOrg();
+const orgId = currentOrg?.id;
 
     return db.getAllSync(
       `SELECT * FROM tasks 
@@ -118,7 +120,8 @@ export const TaskRepository = {
   },
 
   getPending: (): Task[] => {
-    const orgId = getOrgId();
+    const currentOrg = orgRepository.currentOrg();
+const orgId = currentOrg?.id;
 
     return db.getAllSync(
       `SELECT * FROM tasks 
@@ -128,7 +131,8 @@ export const TaskRepository = {
   },
 
   getFailed: (): Task[] => {
-    const orgId = getOrgId();
+   const currentOrg = orgRepository.currentOrg();
+const orgId = currentOrg?.id;
 
     return db.getAllSync(
       `SELECT * FROM tasks 
@@ -158,7 +162,8 @@ export const TaskRepository = {
   },
 
   upsertFromBackend: (data: any) => {
-    const orgId = getOrgId();
+   const currentOrg = orgRepository.currentOrg();
+const orgId = currentOrg?.id;
 
     const local = TaskRepository.getByIdGlobal(data.id);
 

@@ -3,13 +3,25 @@ import { Drawer } from 'expo-router/drawer';
 import { Header } from '../components/Header';
 import { DrawerContent } from '../components/DrawerContent';
 import { OfflineBanner } from '../components/OfflineBanner';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { OrgProvider } from '@/providers/OrgProvider';
 
 export default function RootLayout() {
+
+  const [isDBReady, setIsDBReady] = useState(false);
   useEffect(() => {
-    runMigrations(); // 🔥 run once on app start
+
+    const init = async () => {
+      console.log("Running migrations...");
+      runMigrations();
+      setIsDBReady(true);
+    };
+
+    init();// 🔥 run once on app start
   }, []);
+  if (!isDBReady) {
+    return null; // or splash screen
+  }
 
   return (
     <OrgProvider>

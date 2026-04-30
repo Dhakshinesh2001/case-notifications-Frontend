@@ -18,7 +18,7 @@ export default function CreateCaseScreen() {
 
   const handleCreate = () => {
     if (!title.trim()) return;
-
+    console.log("create case clicked");
     CaseService.createCase({
       title,
       caseNumber,

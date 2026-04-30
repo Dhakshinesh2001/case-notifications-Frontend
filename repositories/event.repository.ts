@@ -1,6 +1,7 @@
 import { SyncStatus } from './types';
 import { getDB } from '../db/provider';
-import { getOrgId } from '../api/org';
+// import { getOrgId } from '../api/org';
+import { orgRepository } from './org.repository';
 
 const db = getDB();
 
@@ -27,7 +28,8 @@ export type CaseEvent = {
 
 export const EventRepository = {
   createLocal: (data: CaseEvent) => {
-    const orgId = getOrgId();
+    const currentOrg = orgRepository.currentOrg();
+const orgId = currentOrg?.id;
 
     db.runSync(
       `INSERT INTO case_events 
@@ -84,7 +86,8 @@ export const EventRepository = {
   },
 
   getById: (id: string): CaseEvent | null => {
-    const orgId = getOrgId();
+    const currentOrg = orgRepository.currentOrg();
+const orgId = currentOrg?.id;
 
     const res = db.getAllSync(
       `SELECT * FROM case_events WHERE id = ? AND orgId = ?`,
@@ -104,7 +107,8 @@ export const EventRepository = {
 },
 
   getByCase: (caseId: string): CaseEvent[] => {
-    const orgId = getOrgId();
+    const currentOrg = orgRepository.currentOrg();
+const orgId = currentOrg?.id;
 
     return db.getAllSync(
       `SELECT * FROM case_events 
@@ -115,7 +119,8 @@ export const EventRepository = {
   },
 
   getPending: (): CaseEvent[] => {
-    const orgId = getOrgId();
+    const currentOrg = orgRepository.currentOrg();
+const orgId = currentOrg?.id;
 
     return db.getAllSync(
       `SELECT * FROM case_events 
@@ -125,7 +130,8 @@ export const EventRepository = {
   },
 
   getFailed: (): CaseEvent[] => {
-    const orgId = getOrgId();
+    const currentOrg = orgRepository.currentOrg();
+const orgId = currentOrg?.id;
 
     return db.getAllSync(
       `SELECT * FROM case_events 
@@ -155,7 +161,8 @@ export const EventRepository = {
   },
 
   upsertFromBackend: (data: any) => {
-    const orgId = getOrgId();
+   const currentOrg = orgRepository.currentOrg();
+const orgId = currentOrg?.id;
 
     const local = EventRepository.getByIdGlobal(data.id);
 

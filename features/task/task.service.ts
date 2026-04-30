@@ -27,7 +27,7 @@ export const TaskService = {
     };
 
     TaskRepository.createLocal(task);
-    SyncService.syncAll();
+    SyncService.syncNow();
   },
 
   /**
@@ -40,7 +40,7 @@ export const TaskService = {
       syncStatus: 'PENDING',
     });
 
-    SyncService.syncAll();
+    SyncService.scheduleSync();
   },
 
   /**
@@ -53,7 +53,7 @@ export const TaskService = {
       syncStatus: 'PENDING',
     });
 
-    SyncService.syncAll();
+    SyncService.scheduleSync();
   },
 
   /**
@@ -61,6 +61,6 @@ export const TaskService = {
    */
   deleteTask: (id: string) => {
     TaskRepository.markDeleted(id);
-    SyncService.syncAll();
+    SyncService.syncNow();
   },
 };

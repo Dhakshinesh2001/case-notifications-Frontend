@@ -48,7 +48,7 @@ export const OrgProvider = ({ children }: { children: React.ReactNode }) => {
 
   console.log("Org changed → syncing:", org.id);
 
-  SyncService.syncAll();
+  SyncService.syncNow();
 }, [org?.id]);
 
   const switchOrg = async (id: string) => {

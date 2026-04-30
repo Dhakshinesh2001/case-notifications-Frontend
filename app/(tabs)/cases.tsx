@@ -1,42 +1,38 @@
-import { useEffect, useState } from 'react';
-import { View, Text, FlatList } from 'react-native';
+import { useEffect, useState, useCallback } from 'react';
+import { View, Text, FlatList, TouchableOpacity } from 'react-native';
 
 import { CaseService } from '@/features/case/case.service';
-import { SyncService } from '@/features/sync/sync.service';
-
 import CaseCard from '../../components/CaseCard';
 
-import { subscribeOrg } from '../../api/org';
-
-import { router } from 'expo-router';
-import { TouchableOpacity } from 'react-native';
-
-import { useFocusEffect } from 'expo-router';
-import { useCallback } from 'react';
+import { router, useFocusEffect } from 'expo-router';
+import { useOrg } from '@/providers/OrgProvider';
 
 type Case = any;
 
 export default function CasesScreen() {
+  const { orgId } = useOrg(); // 🔥 NEW
+
   const [cases, setCases] = useState<Case[]>([]);
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
-
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-
-  // 🔄 Pull to refresh
-  const onRefresh = async () => {
-    setRefreshing(true);
-
-    await SyncService.syncAll();
-    loadCases();
-
-    setRefreshing(false);
-  };
 
   // 📥 Load from local DB
   const loadCases = () => {
     const data = CaseService.getCases();
     setCases(data);
+  };
+
+  // 🔄 Pull to refresh (optional sync)
+  const onRefresh = async () => {
+    setRefreshing(true);
+
+    // Optional: keep if you want manual refresh
+    // await SyncService.syncAll();
+
+    loadCases();
+
+    setRefreshing(false);
   };
 
   // 🔽 Toggle expand
@@ -47,40 +43,25 @@ export default function CasesScreen() {
     }));
   };
 
-  // 🚀 Initial load (local-first + sync)
+  // 🚀 Initial load + org change
   useEffect(() => {
-    loadInitial();
+    if (!orgId) return;
 
+    console.log("Cases reload → org changed:", orgId);
 
-
-
-  const unsubscribe = subscribeOrg(() => {
-    console.log("Org changed → reload cases");
-
-    loadCases(); // 🔥 reload UI
-  });
-
-  return unsubscribe;
-
-  }, []);
-
-  useFocusEffect(
-  useCallback(() => {
-    loadCases();
-  }, [])
-);
-
-  const loadInitial = async () => {
     setLoading(true);
 
-    loadCases(); // ✅ instant local
-
-    await SyncService.syncAll(); // 🔄 backend sync
-
-    loadCases(); // 🔁 refresh UI
+    loadCases();
 
     setLoading(false);
-  };
+  }, [orgId]); // 🔥 KEY CHANGE
+
+  // 🔁 Reload on screen focus
+  useFocusEffect(
+    useCallback(() => {
+      loadCases();
+    }, [orgId])
+  );
 
   // 🧱 Render each case
   const renderCase = ({ item }: { item: Case }) => {
@@ -111,58 +92,58 @@ export default function CasesScreen() {
         </Text>
 
         <Text>Create your first case to get started</Text>
+
         <TouchableOpacity
-    onPress={() => router.push('/case/create')}
-    style={{
-      position: 'absolute',
-      bottom: 20,
-      right: 20,
-      backgroundColor: '#000',
-      width: 56,
-      height: 56,
-      borderRadius: 28,
-      justifyContent: 'center',
-      alignItems: 'center',
-      elevation: 4,
-    }}
-  >
-    <Text style={{ color: '#fff', fontSize: 28 }}>+</Text>
-  </TouchableOpacity>
+          onPress={() => router.push('/case/create')}
+          style={{
+            position: 'absolute',
+            bottom: 20,
+            right: 20,
+            backgroundColor: '#000',
+            width: 56,
+            height: 56,
+            borderRadius: 28,
+            justifyContent: 'center',
+            alignItems: 'center',
+            elevation: 4,
+          }}
+        >
+          <Text style={{ color: '#fff', fontSize: 28 }}>+</Text>
+        </TouchableOpacity>
       </View>
     );
   }
 
   // 📋 List
   return (
+    <View style={{ flex: 1 }}>
+      <FlatList
+        data={cases}
+        keyExtractor={(item) => item.id}
+        renderItem={renderCase}
+        contentContainerStyle={{ padding: 12 }}
+        refreshing={refreshing}
+        onRefresh={onRefresh}
+      />
 
-   <View style={{ flex: 1 }}>
-  <FlatList
-    data={cases}
-    keyExtractor={(item) => item.id}
-    renderItem={renderCase}
-    contentContainerStyle={{ padding: 12 }}
-    refreshing={refreshing}
-    onRefresh={onRefresh}
-  />
-
-  {/* ➕ FLOATING BUTTON */}
-  <TouchableOpacity
-    onPress={() => router.push('/case/create')}
-    style={{
-      position: 'absolute',
-      bottom: 20,
-      right: 20,
-      backgroundColor: '#000',
-      width: 56,
-      height: 56,
-      borderRadius: 28,
-      justifyContent: 'center',
-      alignItems: 'center',
-      elevation: 4,
-    }}
-  >
-    <Text style={{ color: '#fff', fontSize: 28 }}>+</Text>
-  </TouchableOpacity>
-</View>
+      {/* ➕ Floating Button */}
+      <TouchableOpacity
+        onPress={() => router.push('/case/create')}
+        style={{
+          position: 'absolute',
+          bottom: 20,
+          right: 20,
+          backgroundColor: '#000',
+          width: 56,
+          height: 56,
+          borderRadius: 28,
+          justifyContent: 'center',
+          alignItems: 'center',
+          elevation: 4,
+        }}
+      >
+        <Text style={{ color: '#fff', fontSize: 28 }}>+</Text>
+      </TouchableOpacity>
+    </View>
   );
 }

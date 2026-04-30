@@ -1,20 +1,7 @@
-import { getAuthToken } from './auth';
-import { setAuthTokenProvider } from './auth';
-// import { getOrgId } from './org';
 import { AuthService } from '../features/auth/auth.service';
-import { getOrgId } from './org';
-
-setAuthTokenProvider(async () => {
-  return "your_test_token";
-});
+import { orgRepository } from '@/repositories/org.repository';
 
 const BASE_URL = process.env.EXPO_PUBLIC_API_URL;
-
-// 🔒 TEMP (later replace with Clerk)
-const TOKEN = "your_test_token";
-const ORG_ID = getOrgId() as string;
-// const ORG_ID = '86c9be4f-50cd-4616-b49d-91120b112f38'; //TODO remove this line
-
 
 type Method = 'GET' | 'POST' | 'PATCH' | 'DELETE';
 
@@ -23,15 +10,22 @@ async function request(
   method: Method = 'GET',
   body?: any
 ) {
+  // 🔐 Get fresh auth token
+  // const token = await AuthService.getToken();
+  const token = "TODO put the token here";
 
-  const token = await AuthService.getToken();
-  console.log("org ID:",getOrgId() );
+  // 🏢 Get current org from DB (single source of truth)
+  const currentOrg = orgRepository.currentOrg();
+  const orgId = currentOrg?.id;
+
+  console.log("API → org ID:", orgId);
+
   const res = await fetch(`${BASE_URL}${endpoint}`, {
     method,
     headers: {
       'Content-Type': 'application/json',
-      Authorization: TOKEN ? `Bearer ${TOKEN}` : "",
-      'x-org-id': getOrgId() || "",//TODO replace with getOrgId()
+      Authorization: token ? `Bearer ${token}` : '',
+      'x-org-id': orgId || '',
     },
     body: body ? JSON.stringify(body) : undefined,
   });
@@ -43,10 +37,10 @@ async function request(
     } catch {
       error = { message: 'API Error' };
     }
+
     throw new Error(error.message || 'API Error');
   }
 
-  // ✅ ALWAYS return parsed JSON
   return res.json();
 }
 

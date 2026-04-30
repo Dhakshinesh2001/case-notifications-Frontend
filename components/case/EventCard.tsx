@@ -13,6 +13,7 @@ export default function EventCard({
   expandedId,
   setExpandedId,
 }: any) {
+  console.log("Ebent:",event);
   const isNew = event.content === 'New Event';
 //   const [open, setOpen] = useState(isNew);
 
@@ -21,6 +22,8 @@ export default function EventCard({
 const update = (field: string, value: string) => {
   if (isTemp) {
     if (!value?.trim()) return;
+
+    
 
     const newId = EventService.createEvent(event.caseId, {
       content: value,

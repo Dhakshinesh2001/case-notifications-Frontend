@@ -10,13 +10,82 @@ import { SyncAPI } from '../../api/sync.api';
 import { AppStatusActions } from '../../hooks/useAppStatus';
 // import { getOrgId } from '../../api/org';
 import { orgRepository } from '@/repositories/org.repository';
+let isSyncing = false;
+let hasPending = false;
+let debounceTimer: any = null;
 
 export const SyncService = {
   // 🔁 GLOBAL SYNC 
+  scheduleSync: () => {
+  // 🔁 clear previous timer
+  if (debounceTimer) {
+    clearTimeout(debounceTimer);
+  }
+
+  // ⏱ debounce (300ms)
+  debounceTimer = setTimeout(() => {
+    SyncService.runSync();
+  }, 300);
+},
+
+syncNow: async () => {
+  await SyncService.runSync();
+},
+
+runSync: async () => {
+  const currentOrg = orgRepository.currentOrg();
+  const orgId = currentOrg?.id;
+
+  if (!orgId) {
+    console.log("Skipping sync: no org selected");
+    return;
+  }
+
+  // 🚫 If already syncing → queue next run
+  if (isSyncing) {
+    console.log("Sync already running → marking pending");
+    hasPending = true;
+    return;
+  }
+
+  isSyncing = true;
+  hasPending = false;
+
+  console.log("🚀 Running sync...");
+
+  AppStatusActions.setSyncing(true);
+  AppStatusActions.setFailed(false);
+
+  try {
+    await Promise.all([
+      SyncService.pushCases(),
+      SyncService.pushEvents(),
+      SyncService.pushTasks(),
+    ]);
+
+    await SyncService.pullAll();
+
+    AppStatusActions.setLastSynced(new Date().toISOString());
+
+  } catch (err) {
+    console.log("SYNC ERROR", err);
+    AppStatusActions.setFailed(true);
+  }
+
+  AppStatusActions.setSyncing(false);
+  isSyncing = false;
+
+  // 🔁 If something triggered sync during run → run again
+  if (hasPending) {
+    console.log("🔁 Running pending sync...");
+    hasPending = false;
+    SyncService.runSync();
+  }
+},
   syncAll: async () => {
     console.log("syncAll called");
      const currentOrg = orgRepository.currentOrg();
-const orgId = currentOrg?.id;
+      const orgId = currentOrg?.id;
 
 console.log("orgID in sync service:", orgId);
 

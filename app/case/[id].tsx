@@ -31,9 +31,10 @@ export default function CaseDetailScreen() {
     };
 
     useEffect(() => {
-        loadData();
-        SyncService.syncAll().then(loadData);
-    }, []);
+  if (!id) return;
+
+  SyncService.syncNow(); // TEMP (step 3 will improve this)
+}, [id]);
 
     useFocusEffect(
   useCallback(() => {
@@ -102,6 +103,7 @@ export default function CaseDetailScreen() {
     status: 'OPEN',
     isTemp: true,
     createdAt: new Date().toISOString(),
+    caseId: id,
   };
 
   setTasks((prev) => [tempTask, ...prev]);
@@ -116,6 +118,7 @@ export default function CaseDetailScreen() {
     type: 'GENERAL',
     eventDate: new Date().toISOString(),
     isTemp: true,
+    caseId: id,
   };
 
   setEvents((prev) => [tempEvent, ...prev]);
