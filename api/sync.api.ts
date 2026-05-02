@@ -10,4 +10,9 @@ export const SyncAPI = {
         const res = await apiClient.get('/sync');
         return res.data || res; // 🔥 unwrap here
     },
+
+    syncCase: async (caseId: string) => {
+  const res = await apiClient.get(`/case/${caseId}`);
+  return res.data || res;
+},
 };

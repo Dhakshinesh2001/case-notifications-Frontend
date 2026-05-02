@@ -125,7 +125,7 @@ const orgId = currentOrg?.id;
 
     return db.getAllSync(
       `SELECT * FROM tasks 
-       WHERE syncStatus = 'PENDING' AND orgId = ?`,
+       WHERE syncStatus IN ('PENDING', 'FAILED') AND orgId = ?`,
       [orgId]
     ) as Task[];
   },

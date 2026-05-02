@@ -3,6 +3,7 @@ import { OrgAPI } from '../../api/org.api';
 import { SyncService } from '../sync/sync.service';
 import { generateId } from '@/utils/uuid';
 import { orgRepository } from '@/repositories/org.repository';
+import { Alert } from 'react-native';
 // import { generateId } from '../../utils/uuid';
 
 export const OrgService = {
@@ -12,6 +13,7 @@ export const OrgService = {
   getOrgs: async () => {
   const res = await OrgAPI.getOrgs();
   const data = res.data || res;
+  // Alert.alert("Inside get ORGS");
 
   return data.map((o: any) => ({
     id: o.orgId,
@@ -20,6 +22,7 @@ export const OrgService = {
   }))},
 
   getCurrentOrg: async () => {
+    // Alert.alert("Inside get current ORG");
   const res = orgRepository.currentOrg();
   console.log("res in org ser:", res);
   const data = res.data || res;
@@ -47,6 +50,7 @@ export const OrgService = {
    */
   createOrg: async (data: { name: string }) => {
     console.log("inside create org1");
+    // Alert.alert("inside ORG SERVICE");
     const now = new Date().toISOString();
     const newOrg = {
         id: generateId(),
@@ -58,7 +62,9 @@ export const OrgService = {
       };
       console.log("inside create org2");
       orgRepository.createLocal(newOrg);
-    return await OrgAPI.createOrg(newOrg);
+   const res = await OrgAPI.createOrg(newOrg);
+  // Alert.alert("Success", JSON.stringify(res));
+  return res;
   },
 //   createCase: (data: any) => {
 //       const now = new Date().toISOString();

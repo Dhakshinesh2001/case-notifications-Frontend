@@ -10,6 +10,7 @@ import { SyncAPI } from '../../api/sync.api';
 import { AppStatusActions } from '../../hooks/useAppStatus';
 // import { getOrgId } from '../../api/org';
 import { orgRepository } from '@/repositories/org.repository';
+import { NotificationService } from '../notification/notification.service';
 let isSyncing = false;
 let hasPending = false;
 let debounceTimer: any = null;
@@ -17,93 +18,92 @@ let debounceTimer: any = null;
 export const SyncService = {
   // 🔁 GLOBAL SYNC 
   scheduleSync: () => {
-  // 🔁 clear previous timer
-  if (debounceTimer) {
-    clearTimeout(debounceTimer);
-  }
+    // 🔁 clear previous timer
+    if (debounceTimer) {
+      clearTimeout(debounceTimer);
+    }
 
-  // ⏱ debounce (300ms)
-  debounceTimer = setTimeout(() => {
-    SyncService.runSync();
-  }, 300);
-},
+    // ⏱ debounce (300ms)
+    debounceTimer = setTimeout(() => {
+      SyncService.runSync();
+    }, 300);
+  },
 
-syncNow: async () => {
-  await SyncService.runSync();
-},
+  syncNow: async () => {
+    await SyncService.runSync();
+  },
 
-runSync: async () => {
-  const currentOrg = orgRepository.currentOrg();
-  const orgId = currentOrg?.id;
+  runSync: async () => {
+    const currentOrg = orgRepository.currentOrg();
+    const orgId = currentOrg?.id;
 
-  if (!orgId) {
-    console.log("Skipping sync: no org selected");
-    return;
-  }
-
-  // 🚫 If already syncing → queue next run
-  if (isSyncing) {
-    console.log("Sync already running → marking pending");
-    hasPending = true;
-    return;
-  }
-
-  isSyncing = true;
-  hasPending = false;
-
-  console.log("🚀 Running sync...");
-
-  AppStatusActions.setSyncing(true);
-  AppStatusActions.setFailed(false);
-
-  try {
-    await Promise.all([
-      SyncService.pushCases(),
-      SyncService.pushEvents(),
-      SyncService.pushTasks(),
-    ]);
-
-    await SyncService.pullAll();
-
-    AppStatusActions.setLastSynced(new Date().toISOString());
-
-  } catch (err) {
-    console.log("SYNC ERROR", err);
-    AppStatusActions.setFailed(true);
-  }
-
-  AppStatusActions.setSyncing(false);
-  isSyncing = false;
-
-  // 🔁 If something triggered sync during run → run again
-  if (hasPending) {
-    console.log("🔁 Running pending sync...");
-    hasPending = false;
-    SyncService.runSync();
-  }
-},
-  syncAll: async () => {
-    console.log("syncAll called");
-     const currentOrg = orgRepository.currentOrg();
-      const orgId = currentOrg?.id;
-
-console.log("orgID in sync service:", orgId);
-
-if (!orgId) {
-  console.log("Skipping sync: no org selected");
-  return;
-}
-     console.log("orgID in sync service:",orgId);
     if (!orgId) {
-    console.log("Skipping sync: no org selected");
-    return;
-  }
+      console.log("Skipping sync: no org selected1");
+      return;
+    }
+
+    // 🚫 If already syncing → queue next run
+    if (isSyncing) {
+      console.log("Sync already running → marking pending");
+      hasPending = true;
+      return;
+    }
+
+    isSyncing = true;
+    hasPending = false;
+
+    console.log("🚀 Running sync...");
 
     AppStatusActions.setSyncing(true);
     AppStatusActions.setFailed(false);
 
     try {
-        
+      await Promise.all([
+        SyncService.pushCases(),
+        SyncService.pushEvents(),
+        SyncService.pushTasks(),
+      ]);
+
+      await SyncService.pullAll();
+      await NotificationService.checkEvents();
+
+      AppStatusActions.setLastSynced(new Date().toISOString());
+
+    } catch (err) {
+      console.log("SYNC ERROR", err);
+      AppStatusActions.setFailed(true);
+    }
+
+    AppStatusActions.setSyncing(false);
+    isSyncing = false;
+
+    // 🔁 If something triggered sync during run → run again
+    if (hasPending) {
+      console.log("🔁 Running pending sync...");
+      hasPending = false;
+      SyncService.runSync();
+    }
+
+    // await NotificationService.checkEvents();
+  },
+  syncAll: async () => {
+    console.log("syncAll called");
+    const currentOrg = orgRepository.currentOrg();
+    const orgId = currentOrg?.id;
+
+    // console.log("orgID in sync service:", orgId);
+
+    //  console.log("orgID in sync service:",orgId);
+    if (!orgId) {
+      console.log("Skipping sync: no org selected2");
+      return;
+    }
+
+    AppStatusActions.setSyncing(true);
+    AppStatusActions.setFailed(false);
+
+    try {
+
       await Promise.all([
         SyncService.pushCases(),
         SyncService.pushEvents(),
@@ -127,9 +127,9 @@ if (!orgId) {
     console.log("pullAll called");
 
     try {
-        // console.log("pull all data123:");
+      // console.log("pull all data123:");
       const data = await SyncAPI.sync();
-    //   console.log("pull all data:", data);
+      //   console.log("pull all data:", data);
 
       const safe = (arr: any) =>
         Array.isArray(arr) ? arr : arr?.data || [];
@@ -139,16 +139,17 @@ if (!orgId) {
       const tasks = safe(data.tasks);
       const orgs = safe(data.orgs);
       console.log("inside pullALL22:", orgs);
-console.log("beforeorgfetch");
+      console.log("beforeorgfetch");
       cases.forEach((c: any) => {
         if (c.deletedAt) {
-            console.log("beforeorgfetch11");
+          console.log("beforeorgfetch11");
           CaseRepository.removeDeleted(c.id);
-        } else {console.log("beforeorgfetch22");
+        } else {
+          console.log("beforeorgfetch22");
           CaseRepository.upsertFromBackend(c);
         }
       });
-console.log("beforeveetch");
+      console.log("beforeveetch");
       events.forEach((e: any) => {
         if (e.deletedAt) {
           EventRepository.removeDeleted(e.id);
@@ -166,11 +167,11 @@ console.log("beforeveetch");
       });
       console.log("beforeorgfetch");
       orgs.forEach((o: any) => {
-        console.log("o in pull all",o);
+        console.log("o in pull all", o);
         orgRepository.upsertFromBackend(o);
       });
 
-      
+
 
     } catch (err) {
       console.log("Pull sync failed", err);
@@ -203,7 +204,9 @@ console.log("beforeveetch");
 
         // 🆕 CREATE
         if (!item.isSynced) {
+          console.log("in PUSH ENTITY");
           const res = await createFn(payload);
+          console.log("in PUSH ENTITY2");
           markSynced(item.id, res.updatedAt);
         }
         // 🔄 UPDATE
@@ -251,6 +254,7 @@ console.log("beforeveetch");
   // 🔼 EVENTS
   pushEvents: async () => {
     const items = EventRepository.getPending();
+    console.log("items in SYNC service",items);
 
     await SyncService.pushEntity({
       items,
@@ -312,4 +316,113 @@ console.log("beforeveetch");
       SyncService.pushTasks(),
     ]);
   },
+
+
+  syncCase: async (caseId: string) => {
+    const currentOrg = orgRepository.currentOrg();
+    const orgId = currentOrg?.id;
+
+    if (!orgId) {
+      console.log("No org → skipping case sync");
+      return;
+    }
+
+    // 🚫 respect queue
+    if (isSyncing) {
+      hasPending = true;
+      return;
+    }
+
+    isSyncing = true;
+    hasPending = false;
+
+    console.log("📦 Syncing case:", caseId);
+
+    AppStatusActions.setSyncing(true);
+    AppStatusActions.setFailed(false);
+
+    try {
+      // 🔼 PUSH ONLY RELATED DATA
+
+      const caseItem = CaseRepository.getById(caseId);
+      if (caseItem && caseItem.syncStatus === 'PENDING') {
+        await SyncService.pushCases(); // (can optimize later)
+      }
+
+      const events = EventRepository.getByCase(caseId);
+      for (const e of events) {
+        if (e.syncStatus === 'PENDING') {
+          await SyncService.pushEvents();
+          break;
+        }
+      }
+
+      const tasks = TaskRepository.getByCase(caseId);
+      for (const t of tasks) {
+        if (t.syncStatus === 'PENDING') {
+          await SyncService.pushTasks();
+          break;
+        }
+      }
+
+      // 🔽 TARGETED PULL
+      const data = await SyncAPI.syncCase(caseId);
+
+      // 🧠 upsert
+      if (data.case) {
+        CaseRepository.upsertFromBackend(data.case);
+      }
+
+      data.events?.forEach((e: any) => {
+        if (e.deletedAt) {
+          EventRepository.removeDeleted(e.id);
+        } else {
+          EventRepository.upsertFromBackend(e);
+        }
+      });
+
+      data.tasks?.forEach((t: any) => {
+        if (t.deletedAt) {
+          TaskRepository.removeDeleted(t.id);
+        } else {
+          TaskRepository.upsertFromBackend(t);
+        }
+      });
+
+      AppStatusActions.setLastSynced(new Date().toISOString());
+
+    } catch (err) {
+      console.log("Case sync failed", err);
+      AppStatusActions.setFailed(true);
+    }
+
+    AppStatusActions.setSyncing(false);
+    isSyncing = false;
+
+    if (hasPending) {
+      hasPending = false;
+      SyncService.runSync();
+    }
+  },
+
+  startRetryWorker: () => {
+  setInterval(async () => {
+    const currentOrg = orgRepository.currentOrg();
+    const orgId = currentOrg?.id;
+
+    if (!orgId) return;
+
+    console.log("🔁 Retry worker running...");
+
+    try {
+      await Promise.all([
+        SyncService.pushCases(),
+        SyncService.pushEvents(),
+        SyncService.pushTasks(),
+      ]);
+    } catch (err) {
+      console.log("Retry worker error", err);
+    }
+  }, 15000); // ⏱ 15 seconds
+},
 };

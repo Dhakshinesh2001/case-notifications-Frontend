@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { orgRepository } from '@/repositories/org.repository';
 import { SyncService } from '@/features/sync/sync.service';
+import { NotificationService } from '@/features/notification/notification.service';
 
 type Org = {
   id: string;
@@ -41,6 +42,11 @@ export const OrgProvider = ({ children }: { children: React.ReactNode }) => {
 
   useEffect(() => {
     loadCurrentOrg();
+    SyncService.startRetryWorker();
+    setTimeout(() => {
+    NotificationService.checkEvents();
+  }, 1000);
+
   }, []);
 
   useEffect(() => {
@@ -49,6 +55,7 @@ export const OrgProvider = ({ children }: { children: React.ReactNode }) => {
   console.log("Org changed → syncing:", org.id);
 
   SyncService.syncNow();
+
 }, [org?.id]);
 
   const switchOrg = async (id: string) => {
@@ -62,6 +69,7 @@ export const OrgProvider = ({ children }: { children: React.ReactNode }) => {
 
     // 3. Trigger sync
     await SyncService.syncAll();
+    
   };
 
   return (

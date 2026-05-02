@@ -1,8 +1,10 @@
 import { db } from "@/db/database";
+import { Alert } from "react-native";
 
 export const orgRepository = {
     createLocal: (data: any) => {
         // console.log(db.getAllSync(`SELECT * FROM orgs WHERE deletedAt IS NULL`));
+        // Alert.alert("inside org repo db");
         db.runSync(
             `INSERT INTO orgs
       (id, name, role, createdAt, updatedAt, deletedAt, isCurrentOrg) 

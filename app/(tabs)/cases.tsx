@@ -6,6 +6,7 @@ import CaseCard from '../../components/CaseCard';
 
 import { router, useFocusEffect } from 'expo-router';
 import { useOrg } from '@/providers/OrgProvider';
+import { CaseRepository } from '@/repositories/case.repository';
 
 type Case = any;
 
@@ -59,6 +60,7 @@ export default function CasesScreen() {
   // 🔁 Reload on screen focus
   useFocusEffect(
     useCallback(() => {
+      console.log("DKDKDKDKDKDKDall cases",CaseRepository.getAll());
       loadCases();
     }, [orgId])
   );

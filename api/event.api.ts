@@ -16,6 +16,7 @@ export const EventAPI = {
       eventDate: string;
     }
   ) => {
+    console.log("in create event API:", data);
     return apiClient.post(`/event/${caseId}`, data);
   },
 

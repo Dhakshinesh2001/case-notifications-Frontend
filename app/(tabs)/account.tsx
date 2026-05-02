@@ -5,10 +5,12 @@ import {
   TouchableOpacity,
   TextInput,
   FlatList,
+  Alert
 } from 'react-native';
 
 import { OrgService } from '../../features/org/org.service';
 import { AuthService } from '../../features/auth/auth.service';
+import { orgRepository } from '@/repositories/org.repository';
 
 export default function AccountScreen() {
   const [orgs, setOrgs] = useState<any[]>([]);
@@ -32,6 +34,8 @@ export default function AccountScreen() {
   };
 
   useEffect(() => {
+    const data = orgRepository.getOrgs();
+    setOrgs(data);
     loadOrgs();
   }, []);
 
@@ -55,7 +59,34 @@ export default function AccountScreen() {
    * ➕ Create org
    */
   const handleCreateOrg = async () => {
+    // Alert.alert("Create Org", "Button pressed");
   console.log("Create org pressed");
+  
+  // console.log("🔍 HTTPS TEST START");
+
+  // try {
+  //   const res = await fetch('https://jsonplaceholder.typicode.com/posts/1', {
+  //     method: 'GET',
+  //   });
+
+  //   console.log("⬅️ STATUS:", res.status);
+
+  //   const text = await res.text();
+  //   console.log("⬅️ RAW:", text);
+
+  //   let data;
+  //   try {
+  //     data = JSON.parse(text);
+  //   } catch {
+  //     data = text;
+  //   }
+
+  //   console.log("✅ PARSED:", data);
+
+  // } catch (err: any) {
+  //   console.log("🚨 ERROR:", err.message);
+  // }
+
 
   if (!newOrgName.trim()) return;
 

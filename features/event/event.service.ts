@@ -15,7 +15,7 @@ export const EventService = {
    */
   createEvent: (caseId: string, data: any) => {
     const now = new Date().toISOString();
-    console.log("caseID:", caseId);
+    console.log("caseIDIDIDID:", caseId);
 
     const event = {
       id: generateId(),

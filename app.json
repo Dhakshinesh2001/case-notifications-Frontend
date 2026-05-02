@@ -21,7 +21,8 @@
       },
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
-      "package": "com.anonymous.casemanagerappFE"
+      "package": "com.anonymous.casemanagerappFE",
+      "usesCleartextTraffic": true
     },
     "web": {
       "output": "static",
@@ -43,11 +44,18 @@
       ],
       "expo-sqlite",
       "@react-native-community/datetimepicker",
-      "expo-secure-store"
+      "expo-secure-store",
+      "expo-web-browser"
     ],
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "7ae1753f-2da4-41e1-ada5-201aa501e144"
+      }
     }
   }
 }

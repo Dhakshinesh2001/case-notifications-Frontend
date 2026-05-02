@@ -109,7 +109,7 @@ const orgId = currentOrg?.id;
     const currentOrg = orgRepository.currentOrg();
 const orgId = currentOrg?.id;
     return db.getAllSync(
-      `SELECT * FROM cases WHERE syncStatus = 'PENDING' AND orgId = ?`, [orgId]
+      `SELECT * FROM cases WHERE syncStatus IN ('PENDING', 'FAILED') AND orgId = ?`, [orgId]
     ) as Case[];
   },
 

@@ -24,6 +24,9 @@ export type CaseEvent = {
 
   syncStatus: SyncStatus;
   isSynced: number;
+  notifiedToday?: number;
+  notifiedTomorrow?: number;
+  lastNotifiedAt?: string;
 };
 
 export const EventRepository = {
@@ -31,8 +34,8 @@ export const EventRepository = {
     const currentOrg = orgRepository.currentOrg();
 const orgId = currentOrg?.id;
 
-    db.runSync(
-      `INSERT INTO case_events 
+    console.log("INSERTINSERT",db.runSync(
+      `INSERT OR REPLACE INTO case_events 
       (id, caseId, orgId, type, content, metadata, eventDate, createdAt, updatedAt, syncStatus, isSynced)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
@@ -48,7 +51,9 @@ const orgId = currentOrg?.id;
         'PENDING',
         0,
       ]
-    );
+    ),data);
+    console.log(db.getAllSync(
+      `SELECT * FROM case_events` ));
   },
 
   updateLocal: (id: string, updates: Partial<CaseEvent>) => {
@@ -65,8 +70,13 @@ const orgId = currentOrg?.id;
     fields.push(`updatedAt = ?`);
     values.push(now);
 
+
     fields.push(`syncStatus = ?`);
     values.push('PENDING');
+    fields.push(`notifiedToday = ?`);
+    values.push(0);
+    fields.push(`notifiedTomorrow = ?`);
+    values.push(0);
 
     db.runSync(
       `UPDATE case_events SET ${fields.join(', ')} WHERE id = ?`,
@@ -118,15 +128,29 @@ const orgId = currentOrg?.id;
     ) as CaseEvent[];
   },
 
+  getAll: (): CaseEvent[] => {
+  return db.getAllSync(
+    `SELECT * FROM case_events WHERE deletedAt IS NULL`
+  ) as CaseEvent[];
+},
+
   getPending: (): CaseEvent[] => {
     const currentOrg = orgRepository.currentOrg();
 const orgId = currentOrg?.id;
 
-    return db.getAllSync(
+     const X = db.getAllSync(
       `SELECT * FROM case_events 
-       WHERE syncStatus = 'PENDING' AND orgId = ?`,
+       WHERE syncStatus IN ('PENDING', 'FAILED') AND orgId = ?`,
       [orgId]
     ) as CaseEvent[];
+    console.log("EVENT RRPO",X);
+
+const Y = db.getAllSync(
+      `SELECT * FROM case_events WHERE orgId = ?`,
+      [orgId]
+    ) as CaseEvent[];
+    console.log("EVENT RRPO123",Y);
+    return X;
   },
 
   getFailed: (): CaseEvent[] => {
@@ -150,6 +174,7 @@ const orgId = currentOrg?.id;
   },
 
   markFailed: (id: string) => {
+    console.log("reached EVENT REPO MRK FAILED");
     db.runSync(
       `UPDATE case_events SET syncStatus = ? WHERE id = ?`,
       ['FAILED', id]

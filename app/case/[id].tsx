@@ -32,8 +32,8 @@ export default function CaseDetailScreen() {
 
     useEffect(() => {
   if (!id) return;
-
-  SyncService.syncNow(); // TEMP (step 3 will improve this)
+  loadData();
+  SyncService.syncCase(id[0]).then(loadData); // TEMP (step 3 will improve this)
 }, [id]);
 
     useFocusEffect(
