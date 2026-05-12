@@ -1,8 +1,9 @@
 import { useState } from 'react';
-import { View, Text, TouchableOpacity } from 'react-native';
+import { View, Text, TouchableOpacity, Platform } from 'react-native';
 import EditableField from '@/components/case/EditableField';
 import { EventService } from '@/features/event/event.service';
 import TaskCard from './TaskCard';
+import DateTimePicker from '@react-native-community/datetimepicker';
 
 export default function EventCard({
   event,
@@ -13,31 +14,36 @@ export default function EventCard({
   expandedId,
   setExpandedId,
 }: any) {
-  console.log("Ebent:",event);
-  const isNew = event.content === 'New Event';
-//   const [open, setOpen] = useState(isNew);
-
   const isTemp = event.isTemp;
+  const [eventDate, setEventDate] = useState(new Date(event.eventDate || Date.now()));
+  const [showPicker, setShowPicker] = useState(false);
 
-const update = (field: string, value: string) => {
-  if (isTemp) {
-    if (!value?.trim()) return;
+  const update = (field: string, value: any) => {
+    if (isTemp) {
+      if (field === 'content' && !value?.trim()) return;
 
-    
+      EventService.createEvent(event.caseId, {
+        content: field === 'content' ? value : 'New Event',
+        type: field === 'type' ? value : 'GENERAL',
+        eventDate: field === 'eventDate' ? value : eventDate.toISOString(),
+      });
 
-    const newId = EventService.createEvent(event.caseId, {
-      content: value,
-      type: 'GENERAL',
-      eventDate: new Date().toISOString(),
-    });
+      onUpdate?.();
+      return;
+    }
 
+    const payload = field === 'eventDate' ? value : value;
+    EventService.updateEvent(event.id, { [field]: payload });
     onUpdate?.();
-    return;
-  }
+  };
 
-  EventService.updateEvent(event.id, { [field]: value });
-  onUpdate?.();
-};
+  const onDateChange = (e: any, selectedDate?: Date) => {
+    setShowPicker(Platform.OS === 'ios');
+    if (selectedDate) {
+      setEventDate(selectedDate);
+      update('eventDate', selectedDate.toISOString());
+    }
+  };
 
   return (
     <View
@@ -47,13 +53,12 @@ const update = (field: string, value: string) => {
         backgroundColor: '#f5f5f5',
       }}
     >
-      {/* HEADER */}
       <TouchableOpacity onPress={onToggle}>
         <Text style={{ fontWeight: 'bold' }}>
-          {event.content}
+          {event.content || 'New Event'}
         </Text>
         <Text style={{ fontSize: 12, color: '#666' }}>
-          {new Date(event.eventDate).toDateString()}
+          📅 {eventDate.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}, {eventDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
         </Text>
       </TouchableOpacity>
 
@@ -63,8 +68,27 @@ const update = (field: string, value: string) => {
             label="Content"
             value={event.content}
             onSave={(v: string) => update('content', v)}
-            autoFocus={isNew}
+            autoFocus={isTemp}
           />
+
+          <TouchableOpacity 
+            onPress={() => setShowPicker(true)}
+            style={{ marginBottom: 15 }}
+          >
+            <Text style={{ fontSize: 12, color: '#666', marginBottom: 4 }}>Event Date</Text>
+            <View style={{ padding: 8, backgroundColor: '#fff', borderRadius: 4, borderWidth: 1, borderColor: '#ddd' }}>
+              <Text>{eventDate.toLocaleDateString()}</Text>
+            </View>
+          </TouchableOpacity>
+
+          {showPicker && (
+            <DateTimePicker
+              value={eventDate}
+              mode="datetime"
+              display="default"
+              onChange={onDateChange}
+            />
+          )}
 
           <EditableField
             label="Type"
@@ -72,30 +96,24 @@ const update = (field: string, value: string) => {
             onSave={(v: string) => update('type', v)}
           />
 
-          <Text style={{ marginTop: 10, fontWeight: 'bold' }}>
-            Tasks
-          </Text>
+          <Text style={{ marginTop: 10, fontWeight: 'bold' }}>Tasks</Text>
 
           {tasks?.length ? (
             tasks.map((task: any) => (
               <TaskCard
-              key={task.id}
-              task={task}
-              onUpdate={onUpdate}
-              isOpen={expandedId === `task_${task.id}`}
-              onToggle={() =>
-                setExpandedId(
-                  expandedId === `task_${task.id}`
-                    ? null
-                    : `task_${task.id}`
-                )
-              }
-            />
+                key={task.id}
+                task={task}
+                onUpdate={onUpdate}
+                isOpen={expandedId === `task_${task.id}`}
+                onToggle={() =>
+                  setExpandedId(
+                    expandedId === `task_${task.id}` ? null : `task_${task.id}`
+                  )
+                }
+              />
             ))
           ) : (
-            <Text style={{ color: '#888', marginTop: 4 }}>
-              No tasks
-            </Text>
+            <Text style={{ color: '#888', marginTop: 4 }}>No tasks</Text>
           )}
         </View>
       )}

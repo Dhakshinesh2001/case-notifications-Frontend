@@ -13,7 +13,7 @@ export const TaskService = {
   /**
    * ➕ Create task (local-first)
    */
-  createTask: (caseId: string, data: any) => {
+  createTask: (caseId: string, data: { title: string; status: string; dueDate?: string | null }) => {
     const now = new Date().toISOString();
 
     const task = {
@@ -26,7 +26,7 @@ export const TaskService = {
       isSynced: 0,
     };
 
-    TaskRepository.createLocal(task);
+    TaskRepository.createLocal(task as any);
     SyncService.syncNow();
   },
 

@@ -13,9 +13,8 @@ export const EventService = {
   /**
    * ➕ Create event
    */
-  createEvent: (caseId: string, data: any) => {
+  createEvent: (caseId: string, data: { content: string; type?: string; eventDate: string }) => {
     const now = new Date().toISOString();
-    console.log("caseIDIDIDID:", caseId);
 
     const event = {
       id: generateId(),
@@ -27,7 +26,7 @@ export const EventService = {
       isSynced: 0,
     };
 
-    EventRepository.createLocal(event);
+    EventRepository.createLocal(event as any);
     SyncService.syncNow();
   },
 
