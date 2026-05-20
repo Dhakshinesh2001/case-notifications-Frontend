@@ -52,8 +52,8 @@ const orgId = currentOrg?.id;
         0,
       ]
     ),data);
-    console.log(db.getAllSync(
-      `SELECT * FROM case_events` ));
+    // console.log(db.getAllSync(
+    //   `SELECT * FROM case_events` ));
   },
 
   updateLocal: (id: string, updates: Partial<CaseEvent>) => {

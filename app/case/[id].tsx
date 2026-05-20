@@ -1,28 +1,22 @@
 import { useEffect, useState } from 'react';
-import { View, FlatList, Text, TouchableOpacity } from 'react-native';
+import { View, FlatList, Text } from 'react-native';
 import { useLocalSearchParams } from 'expo-router';
 
 import { CaseService } from '@/features/case/case.service';
 import { TaskService } from '@/features/task/task.service';
 import { EventService } from '@/features/event/event.service';
-import { SyncService } from '@/features/sync/sync.service';
 
 import CaseHeader from '@/components/case/CaseHeader';
 import TimelineItem from '@/components/case/TimelineItem';
 import AddButton from '@/components/case/AddButton';
 
-import { useFocusEffect } from 'expo-router';
-import { useCallback } from 'react';
-
 export default function CaseDetailScreen() {
-    const { id } = useLocalSearchParams();
+  const { id } = useLocalSearchParams();
 
-    const [caseData, setCaseData] = useState<any>(null);
-    const [tasks, setTasks] = useState<any[]>([]);
-    const [events, setEvents] = useState<any[]>([]);
-
-    const [filter, setFilter] = useState<'ALL' | 'EVENT' | 'TASK'>('ALL');
-    const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [caseData, setCaseData] = useState<any>(null);
+  const [tasks, setTasks] = useState<any[]>([]);
+  const [events, setEvents] = useState<any[]>([]);
+  const [expandedId, setExpandedId] = useState<string | null>(null);
 
     const loadData = () => {
         setCaseData(CaseService.getCaseById(id as string));
@@ -30,151 +24,121 @@ export default function CaseDetailScreen() {
         setEvents(EventService.getEvents(id as string));
     };
 
-    useEffect(() => {
-  if (!id) return;
-  loadData();
-  SyncService.syncCase(id[0]).then(loadData); // TEMP (step 3 will improve this)
-}, [id]);
+  useEffect(() => {
+    if (!id) return;
 
-    useFocusEffect(
-  useCallback(() => {
-    return () => {
-      // 🔥 cleanup when leaving screen
-      setTasks((prev) => prev.filter((t) => !t.isTemp));
-      setEvents((prev) => prev.filter((e) => !e.isTemp));
-    };
-  }, [])
-);
+    loadData();
+  }, [id]);
 
-    // 🧠 timeline builder
-    const buildTimeline = () => {
-        const items: any[] = [];
-        const tasksByEvent: Record<string, any[]> = {};
+  // 🧠 SAFE STATE HELPERS
 
-        tasks.forEach((t) => {
-            if (t.eventId) {
-                if (!tasksByEvent[t.eventId]) {
-                    tasksByEvent[t.eventId] = [];
-                }
-                tasksByEvent[t.eventId].push(t);
-            }
-        });
-
-        events.forEach((event) => {
-            items.push({
-                type: 'event',
-                date: new Date(event.eventDate),
-                event,
-                tasks: tasksByEvent[event.id] || [],
-            });
-        });
-
-        tasks
-            .filter((t) => !t.eventId)
-            .forEach((task) => {
-                items.push({
-                    type: 'task',
-                    date: new Date(task.dueDate || task.createdAt),
-                    task,
-                });
-            });
-
-        items.sort((a, b) => b.date.getTime() - a.date.getTime());
-        return items;
-    };
-
-    const timeline = buildTimeline();
-
-    const filteredTimeline = timeline.filter((item) => {
-        if (filter === 'EVENT') return item.type === 'event';
-        if (filter === 'TASK') return item.type === 'task';
-        return true;
-    });
-
-    const handleFilterChange = (f: 'ALL' | 'EVENT' | 'TASK') => {
-        setFilter(f);
-        setExpandedId(null); // 🔥 reset all cards
-    };
-
-   const handleAddTask = () => {
-  const tempTask = {
-    id: `temp_task_${Date.now()}`,
-    title: '',
-    status: 'OPEN',
-    isTemp: true,
-    createdAt: new Date().toISOString(),
-    caseId: id,
+  const addTempTask = (task: any) => {
+    if (!task) return;
+    setTasks((prev) => [task, ...prev]);
   };
 
-  setTasks((prev) => [tempTask, ...prev]);
-  setExpandedId(`task_${tempTask.id}`);
-};
-    
+  const updateTaskLocal = (id: string, updates: any) => {
+    setTasks((prev) =>
+      prev.map((t) => (t?.id === id ? { ...t, ...updates } : t))
+    );
+  };
+
+  const replaceTempTask = (tempId: string, newTask: any) => {
+    if (!newTask) return;
+
+    setTasks((prev) =>
+      prev.map((t) => (t?.id === tempId ? newTask : t))
+    );
+  };
+
+  const updateEventLocal = (id: string, updates: any) => {
+    setEvents((prev) =>
+      prev.map((e) => (e?.id === id ? { ...e, ...updates } : e))
+    );
+  };
+
+  const replaceTempEvent = (tempId: string, newEvent: any) => {
+    if (!newEvent) return;
+
+    setEvents((prev) =>
+      prev.map((e) => (e?.id === tempId ? newEvent : e))
+    );
+  };
 
   const handleAddEvent = () => {
-  const tempEvent = {
-    id: `temp_event_${Date.now()}`,
-    content: '',
-    type: 'GENERAL',
-    eventDate: new Date().toISOString(),
-    isTemp: true,
-    caseId: id,
+    const tempEvent = {
+      id: `temp_event_${Date.now()}`,
+      content: '',
+      type: 'GENERAL',
+      eventDate: null,
+      isTemp: true,
+      caseId: id,
+    };
+
+    setEvents((prev) => [tempEvent, ...prev]);
+    setExpandedId(`event_${tempEvent.id}`);
   };
 
-  setEvents((prev) => [tempEvent, ...prev]);
-  setExpandedId(`event_${tempEvent.id}`);
-};
-    if (!caseData) return <Text>Loading...</Text>;
+  const buildTimeline = () => {
+    const tasksByEvent: Record<string, any[]> = {};
 
-    return (
-        <View style={{ flex: 1 }}>
-            <FlatList
-                data={filteredTimeline}
-                keyExtractor={(_, i) => i.toString()}
-                ListHeaderComponent={<>
-                    <CaseHeader caseData={caseData} onUpdate={loadData} />
-                    <View
-                        style={{
-                            flexDirection: 'row',
-                            marginBottom: 10,
-                            gap: 10,
-                        }}
-                    >
-                        {['ALL', 'EVENT', 'TASK'].map((f) => (
-                            <TouchableOpacity
-                                key={f}
-                                onPress={() => handleFilterChange(f as any)}
-                                style={{
-                                    paddingVertical: 6,
-                                    paddingHorizontal: 12,
-                                    borderRadius: 20,
-                                    backgroundColor: filter === f ? '#000' : '#eee',
-                                }}
-                            >
-                                <Text style={{ color: filter === f ? '#fff' : '#000' }}>
-                                    {f === 'ALL' ? 'All' : f === 'EVENT' ? 'Events' : 'Tasks'}
-                                </Text>
-                            </TouchableOpacity>
-                        ))}
-                    </View></>
+    tasks
+      .filter(Boolean) // 🔥 FIX
+      .forEach((t) => {
+        if (t?.eventId) {
+          if (!tasksByEvent[t.eventId]) {
+            tasksByEvent[t.eventId] = [];
+          }
+          tasksByEvent[t.eventId].push(t);
+        }
+      });
 
-                }
-                renderItem={({ item, index }) => (
-                    <TimelineItem
-                        item={item}
-                        index={index}
-                        onUpdate={loadData}
-                        expandedId={expandedId}
-                        setExpandedId={setExpandedId}
-                    />
-                )}
-                contentContainerStyle={{ padding: 16 }}
-            />
+    return events
+      .filter(Boolean) // 🔥 FIX
+      .map((event) => ({
+        event,
+        tasks: tasksByEvent[event.id] || [],
+        date: new Date(event.eventDate || Date.now()),
+      }))
+      .sort((a, b) => b.date.getTime() - a.date.getTime());
+  };
 
-            <AddButton
-                onAddTask={handleAddTask}
-                onAddEvent={handleAddEvent}
-            />
-        </View>
-    );
+  const timeline = buildTimeline();
+
+  useEffect(() => {
+    if (timeline.length > 0) {
+      setExpandedId(`event_${timeline[0].event.id}`);
+    }
+  }, [events]);
+
+  if (!caseData) return <Text>Loading...</Text>;
+
+  return (
+    <View style={{ flex: 1 }}>
+      <FlatList
+        data={timeline}
+        keyExtractor={(item) => item.event.id}
+        ListHeaderComponent={<CaseHeader caseData={caseData}   onUpdate={loadData}/>}
+        renderItem={({ item, index }) => (
+          <TimelineItem
+            item={item}
+            index={index}
+            onUpdate={loadData}
+            expandedId={expandedId}
+            setExpandedId={setExpandedId}
+
+            // 🔥 FULL PIPELINE
+            onAddTask={addTempTask}
+            updateTaskLocal={updateTaskLocal}
+            replaceTempTask={replaceTempTask}
+            updateEventLocal={updateEventLocal}
+            replaceTempEvent={replaceTempEvent}
+          />
+        )}
+        contentContainerStyle={{ padding: 16 }}
+      />
+
+      <AddButton onAddEvent={handleAddEvent} />
+    </View>
+  );
 }

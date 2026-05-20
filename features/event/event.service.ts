@@ -14,6 +14,7 @@ export const EventService = {
    * ➕ Create event
    */
   createEvent: (caseId: string, data: { content: string; type?: string; eventDate: string }) => {
+    console.log("inside Create EVENT serivce");
     const now = new Date().toISOString();
 
     const event = {
@@ -28,12 +29,15 @@ export const EventService = {
 
     EventRepository.createLocal(event as any);
     SyncService.syncNow();
+
+    return event;
   },
 
   /**
    * ✏️ Update event
    */
   updateEvent: (id: string, updates: any) => {
+    console.log("UPDUPDUPD",updates);
     EventRepository.updateLocal(id, {
       ...updates,
       updatedAt: new Date().toISOString(),

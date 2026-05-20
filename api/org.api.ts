@@ -9,7 +9,9 @@ export const OrgAPI = {
   },
 
   getOrgById: async (id: string) => {
+    console.log("org.api.ts----IDID:",id);
     const res = await apiClient.get(`/org/${id}`);
+    console.log("org.api.ts RES:", res);
     return res.data || res;
   },
 
@@ -29,4 +31,10 @@ export const OrgAPI = {
   deleteOrg: async (id: string) => {
     return apiClient.delete(`/org/${id}`);
   },
+
+  acceptInvite: async (token: string) => {
+  return apiClient.post('/invite/accept', {
+    token,
+  });
+},
 };

@@ -1,17 +1,26 @@
-import { getAuthToken as clerkGetToken, signOut as clerkSignOut } from './clerk.provider';
+import { authProvider } from '../../app/_layout';
+import { ClerkProviderImpl } from './providers/clerk.provider';
+
+let provider= authProvider;
 
 export const AuthService = {
-  /**
-   * 🔐 Get auth token (used by apiClient)
-   */
-  getToken: async () => {
-    return await clerkGetToken();
+  setProvider: (p: any) => {
+    provider = p;
   },
 
-  /**
-   * 🚪 Sign out user
-   */
+  getToken: async () => {
+    return provider.getToken();
+  },
+
+  signIn: async () => {
+    return provider.signIn();
+  },
+
   signOut: async () => {
-    await clerkSignOut();
+    return provider.signOut();
+  },
+
+  getUser: async () => {
+    return provider.getUser();
   },
 };

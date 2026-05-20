@@ -1,136 +1,260 @@
-import { useState } from 'react';
-import { View, Text, TouchableOpacity, Platform } from 'react-native';
+import { useMemo, useState } from 'react';
+import { View, Text, TouchableOpacity } from 'react-native';
+import { MaterialIcons } from '@expo/vector-icons';
 import EditableField from '@/components/case/EditableField';
+
 import { TaskService } from '@/features/task/task.service';
-import DateTimePicker from '@react-native-community/datetimepicker';
 
-const CURRENT_USER_ID = 'me';
+import { useDateTimePicker } from '@/hooks/useDateTimePicker';
 
-export default function TaskCard({ task, onUpdate, isOpen, onToggle }: any) {
+import MultiSelect from 'react-native-sectioned-multi-select';
+
+import { userRepository } from '@/repositories/user.repository';
+import { orgRepository } from '@/repositories/org.repository';
+
+export default function TaskCard({
+  task,
+  updateTaskLocal,
+  replaceTempTask,
+}: any) {
   const isTemp = task.isTemp;
-  const isMine = task.assignedTo === CURRENT_USER_ID;
-  
-  const [dueDate, setDueDate] = useState<Date | null>(task.dueDate ? new Date(task.dueDate) : null);
-  const [showPicker, setShowPicker] = useState(false);
 
-  const update = (field: string, value: any) => {
+  const [dueDate, setDueDate] = useState(
+    task.dueDate ? new Date(task.dueDate) : null
+  );
+
+  const [assignedUserIds, setAssignedUserIds] =
+    useState<string[]>(
+      task.assignedUserIds || []
+    );
+
+  const { open } = useDateTimePicker();
+
+  const currentOrg = orgRepository.currentOrg();
+    console.log("COCOCO:::",currentOrg);
+  const orgUsers = 
+  // useMemo(() => {
+  //   if (!currentOrg?.id) return [];
+
+  //   return 
+    userRepository.getOrgUsers(
+      currentOrg.id
+    );
+  // }, [currentOrg?.id]);
+  console.log("ORGORGUSERSUSERS:",orgUsers);
+
+  /**
+   * 🔥 SAVE TASK
+   */
+  const saveTask = async (title: string) => {
+    if (!title?.trim()) return;
+
+    /**
+     * 🔥 CREATE TEMP TASK
+     */
     if (isTemp) {
-      if (field === 'title' && !value?.trim()) return;
+      try {
+        const newTask =
+          TaskService.createTask(
+            task.caseId,
+            {
+              title,
+              status: 'OPEN',
 
-      TaskService.createTask(task.caseId, {
-        title: field === 'title' ? value : 'New Task',
-        status: 'OPEN',
-        dueDate: field === 'dueDate' ? value : (dueDate ? dueDate.toISOString() : null),
-      });
+              dueDate: dueDate
+                ? dueDate.toISOString()
+                : null,
 
-      onUpdate?.();
+              eventId: task.eventId,
+
+              assignedUserIds,
+            }
+          );
+
+        if (!newTask) return;
+
+        replaceTempTask(
+          task.id,
+          newTask
+        );
+      } catch (e) {
+        console.error(
+          'Task create failed',
+          e
+        );
+      }
+
       return;
     }
 
-    TaskService.updateTask(task.id, { [field]: value });
-    onUpdate?.();
-  };
+    /**
+     * 🔥 OPTIMISTIC UPDATE
+     */
+    updateTaskLocal(task.id, {
+      title,
+    });
 
-  const onDateChange = (e: any, selectedDate?: Date) => {
-    setShowPicker(Platform.OS === 'ios');
-    if (selectedDate) {
-      setDueDate(selectedDate);
-      update('dueDate', selectedDate.toISOString());
+    /**
+     * 🔥 BACKEND UPDATE
+     */
+    try {
+      await TaskService.updateTask(
+        task.id,
+        {
+          title,
+        }
+      );
+    } catch (e) {
+      console.error(
+        'Task update failed',
+        e
+      );
     }
   };
 
-  const clearDate = () => {
-    setDueDate(null);
-    update('dueDate', null);
+  /**
+   * 🔥 DATE PICKER
+   */
+  const openDatePicker = () => {
+    open({
+      value: dueDate || new Date(),
+
+      mode: 'date',
+
+      onChange: (date) => {
+        if (!date) return;
+
+        setDueDate(date);
+
+        updateTaskLocal(task.id, {
+          dueDate:
+            date.toISOString(),
+        });
+
+        TaskService.updateTask(
+          task.id,
+          {
+            dueDate:
+              date.toISOString(),
+          }
+        );
+      },
+    });
   };
 
-  const updateStatus = (status: string) => {
-    TaskService.updateTaskStatus(task.id, status);
-    onUpdate?.();
+  /**
+   * 🔥 ASSIGN USERS
+   */
+  const updateAssignments = (
+    ids: string[]
+  ) => {
+    setAssignedUserIds(ids);
+
+    /**
+     * 🔥 OPTIMISTIC UPDATE
+     */
+    updateTaskLocal(task.id, {
+      assignedUserIds: ids,
+    });
+
+    /**
+     * 🔥 BACKEND UPDATE
+     */
+    TaskService.updateTask(
+      task.id,
+      {
+        assignedUserIds: ids,
+      }
+    );
   };
 
   return (
-    <View
-      style={{
-        marginTop: 8,
-        padding: 12,
-        borderRadius: 10,
-        backgroundColor: '#fff',
-        borderWidth: 1,
-        borderColor: '#eee'
-      }}
-    >
-      <TouchableOpacity onPress={onToggle}>
-        <Text style={{ fontWeight: '500' }}>{task.title || 'New Task'}</Text>
-        <Text style={{ fontSize: 12, color: '#666' }}>
-          {dueDate ? `🕒 Due: ${dueDate.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}` : 'No due date'} • {task.status}
+    <View style={{ marginTop: 10 }}>
+      {/* 🔹 TITLE */}
+      <EditableField
+        label="Title"
+        value={task.title}
+        onSave={saveTask}
+      />
+
+      {/* 🔹 DUE DATE */}
+      <TouchableOpacity
+        onPress={openDatePicker}
+      >
+        <Text>
+          {dueDate
+            ? dueDate.toLocaleDateString()
+            : 'Set due date'}
         </Text>
       </TouchableOpacity>
 
-      {isOpen && (
-        <View style={{ marginTop: 10 }}>
-          <EditableField
-            label="Title"
-            value={task.title}
-            onSave={(v: string) => update('title', v)}
-            autoFocus={isTemp}
-          />
+      {/* 🔹 ASSIGN USERS */}
+      <View style={{ marginTop: 12 }}>
+        <MultiSelect
+  IconRenderer={MaterialIcons as any}
+  items={[
+    {
+      id: 'users',
+      name: 'Users',
 
-          <TouchableOpacity 
-            onPress={() => setShowPicker(true)}
-            style={{ marginBottom: 10 }}
-          >
-            <Text style={{ fontSize: 12, color: '#666', marginBottom: 4 }}>Due Date</Text>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-                <View style={{ flex: 1, padding: 8, backgroundColor: '#f9f9f9', borderRadius: 4, borderWidth: 1, borderColor: '#ddd' }}>
-                    <Text>{dueDate ? dueDate.toLocaleString() : 'Set due date...'}</Text>
-                </View>
-                {dueDate && (
-                    <TouchableOpacity onPress={clearDate} style={{ padding: 8 }}>
-                        <Text style={{ color: 'red', fontSize: 12 }}>Clear</Text>
-                    </TouchableOpacity>
-                )}
+      children: orgUsers.map(
+        (u: any) => ({
+          id: u.id,
+          name: u.name,
+        })
+      ),
+    },
+  ]}
+  uniqueKey="id"
+  subKey="children"
+  selectText="Assign Users"
+  showDropDowns={false}
+  readOnlyHeadings
+  onSelectedItemsChange={
+    updateAssignments
+  }
+  selectedItems={
+    assignedUserIds
+  }
+/>
+      </View>
+
+      {/* 🔹 ASSIGNED USER CHIPS */}
+      <View
+        style={{
+          flexDirection: 'row',
+          flexWrap: 'wrap',
+          marginTop: 8,
+        }}
+      >
+        {orgUsers
+          .filter((u: any) =>
+            assignedUserIds.includes(
+              u.id
+            )
+          )
+          .map((u: any) => (
+            <View
+              key={u.id}
+              style={{
+                paddingHorizontal: 10,
+                paddingVertical: 4,
+
+                borderRadius: 999,
+
+                backgroundColor:
+                  '#ddd',
+
+                marginRight: 6,
+                marginBottom: 6,
+              }}
+            >
+              <Text>
+                {u.name}
+              </Text>
             </View>
-          </TouchableOpacity>
-
-          {showPicker && (
-            <DateTimePicker
-              value={dueDate || new Date()}
-              mode="date"
-              display="default"
-              onChange={onDateChange}
-            />
-          )}
-
-          <EditableField
-            label="Description"
-            value={task.description}
-            onSave={(v: string) => update('description', v)}
-            multiline
-          />
-
-          <EditableField
-            label="Priority"
-            value={task.priority}
-            onSave={(v: string) => update('priority', v)}
-          />
-
-          {isMine && (
-            <View style={{ flexDirection: 'row', marginTop: 10 }}>
-              {task.status === 'OPEN' && (
-                <TouchableOpacity onPress={() => updateStatus('IN_PROGRESS')}>
-                  <Text style={{ color: 'blue', marginRight: 12 }}>Accept</Text>
-                </TouchableOpacity>
-              )}
-              {task.status !== 'DONE' && (
-                <TouchableOpacity onPress={() => updateStatus('DONE')}>
-                  <Text style={{ color: 'green' }}>Done</Text>
-                </TouchableOpacity>
-              )}
-            </View>
-          )}
-        </View>
-      )}
+          ))}
+      </View>
     </View>
   );
 }

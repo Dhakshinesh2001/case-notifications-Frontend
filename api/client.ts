@@ -13,20 +13,21 @@ async function request(
   body?: any
 ) {
   // 🔐 Get fresh auth token
-  // const token = await AuthService.getToken();
-  const token = "TODO put the token here";
+  const token = await AuthService.getToken();
+  // const token = "TODO put the token here";
 
   // 🏢 Get current org from DB (single source of truth)
   const currentOrg = orgRepository.currentOrg();
   const orgId = currentOrg?.id;
+  // const org = orgRepository.getOrg();
 
-  console.log("API → org ID:", orgId);
+  // console.log("API → org ID:", orgId);
   const fullUrl = `${process.env.EXPO_PUBLIC_API_URL}${endpoint}`;
 
-  console.log("🌐 API CALL");
-  console.log("➡️ URL:", fullUrl);
-  console.log("➡️ METHOD:", method);
-  console.log("➡️ BODY:", body);
+  // console.log("🌐 API CALL");
+  // console.log("➡️ URL:", fullUrl);
+  // console.log("➡️ METHOD:", method);
+  // console.log("➡️ BODY:", body);
 
 
   const res = await fetch(`${BASE_URL}${endpoint}`, {
@@ -38,6 +39,8 @@ async function request(
     },
     body: body ? JSON.stringify(body) : undefined,
   });
+
+  console.log("RES_----------------------------------------------------------------------",res,"RES-------------------------------------------------");
 
   if (!res.ok) {
     let error;
@@ -62,54 +65,3 @@ export const apiClient = {
   delete: (endpoint: string) =>
     request(endpoint, 'DELETE'),
 };
-
-// export const request = async (
-//   method: string,
-//   url: string,
-//   body?: any
-// ) => {
-//   const fullUrl = `${process.env.EXPO_PUBLIC_API_URL}${url}`;
-
-//   console.log("🌐 API CALL");
-//   console.log("➡️ URL:", fullUrl);
-//   console.log("➡️ METHOD:", method);
-//   console.log("➡️ BODY:", body);
-
-//   try {
-//     const res = await fetch(fullUrl, {
-//       method,
-//       headers: {
-//         'Content-Type': 'application/json',
-//         // add auth later
-//       },
-//       body: body ? JSON.stringify(body) : undefined,
-//     });
-
-//     console.log("⬅️ STATUS:", res.status);
-
-//     const text = await res.text();
-
-//     console.log("⬅️ RAW RESPONSE:", text);
-
-//     let data;
-//     try {
-//       data = JSON.parse(text);
-//     } catch {
-//       data = text;
-//     }
-
-//     if (!res.ok) {
-//       console.log("❌ API ERROR:", data);
-//       throw new Error(data?.message || "API Error");
-//     }
-
-//     console.log("✅ SUCCESS:", data);
-
-//     return data;
-
-//   } catch (err: any) {
-//     console.log("🚨 NETWORK ERROR:", err.message);
-
-//     throw err;
-//   }
-// };

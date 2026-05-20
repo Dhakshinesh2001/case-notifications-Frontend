@@ -3,67 +3,80 @@ import { Drawer } from 'expo-router/drawer';
 import { Header } from '../components/Header';
 import { DrawerContent } from '../components/DrawerContent';
 import { OfflineBanner } from '../components/OfflineBanner';
+import { tokenCache } from '@clerk/clerk-expo/token-cache';
+
 import { useEffect, useState } from 'react';
-import { OrgProvider } from '@/providers/OrgProvider';
+
+// import { OrgProvider } from '@/providers/OrgProvider';
+
 import * as Notifications from 'expo-notifications';
+
 import { NotificationService } from '@/features/notification/notification.service';
 import { PermissionService } from '@/features/permission/permission.service';
-// import { PermissionService } from  
 
+import { ClerkProvider, useAuth } from '@clerk/clerk-expo';
 
+import { Redirect, Slot } from 'expo-router';
+import { ClerkProviderImpl } from '@/features/auth/providers/clerk.provider';
+import { AuthBootstrapper } from '@/components/AuthBootStrapper';
+
+export const authProvider = new ClerkProviderImpl();
+
+function ProtectedLayout() {
+  const { isLoaded, isSignedIn } = useAuth();
+//   console.log('KEYS:', {
+//   clerk: process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY,
+// });
+
+  if (!isLoaded) {
+    return null;
+  }
+
+  // if (!isSignedIn) {
+  //   return <Redirect href="./(auth)/sign-in" />;
+  // }
+
+  return (
+    // <OrgProvider>
+    <>
+     <Header title="App" />
+      <OfflineBanner />
+      <Slot /></>
+    // </OrgProvider>
+  );
+}
 
 export default function RootLayout() {
-
   const [isDBReady, setIsDBReady] = useState(false);
 
   useEffect(() => {
     const initializeApp = async () => {
-      const isAllowed = await PermissionService.requestNotificationPermissions();
-      
+      const isAllowed =
+        await PermissionService.requestNotificationPermissions();
+
       if (isAllowed) {
-        // Now that we have permissions, start the background check
         await NotificationService.initBackgroundFetch();
       }
+
+      console.log('Running migrations...');
+      runMigrations();
+
+      setIsDBReady(true);
     };
 
     initializeApp();
   }, []);
-  useEffect(() => {
 
-    const init = async () => {
-      console.log("Running migrations...");
-      runMigrations();
-      setIsDBReady(true);
-
-    };
-    NotificationService.initBackgroundFetch();
-
-    init();// 🔥 run once on app start
-  }, []);
-
-  useEffect(() => {
-  Notifications.requestPermissionsAsync();
-}, []);
   if (!isDBReady) {
-    return null; // or splash screen
+    return null;
   }
 
   return (
-    <OrgProvider>
-      <Drawer
-        drawerContent={(props: any) => <DrawerContent {...props} />}
-        screenOptions={{
-          header: ({ navigation, route }) => (
-            <>
-              <Header
-                title={route.name}
-                openDrawer={navigation.openDrawer}
-              />
-              <OfflineBanner />
-            </>
-          ),
-        }}
-      />
-    </OrgProvider>
+    <ClerkProvider
+      publishableKey={process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY!}
+      tokenCache={tokenCache}
+    ><AuthBootstrapper />
+      <ProtectedLayout />
+    </ClerkProvider>
   );
 }

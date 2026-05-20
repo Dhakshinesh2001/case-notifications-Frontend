@@ -1,16 +1,18 @@
+import { generateId } from '@/utils/uuid';
 import { InviteAPI } from '../../api/invite.api';
 
 export const InviteService = {
   /**
    * 📥 Get all invites
    */
-  getInvites: () => InviteAPI.getInvites(),
+  // getInvites: () => InviteAPI.getInvites(),
 
   /**
    * ➕ Send invite
    */
-  sendInvite: (data: { email: string; role: string }) => {
-    return InviteAPI.createInvite(data);
+  createInvite: ( email: string, role: string ) => {
+    const id = generateId();
+    return InviteAPI.createInvite({id, email,role});
   },
 
   /**
@@ -24,6 +26,6 @@ export const InviteService = {
    * 🗑️ Delete invite
    */
   deleteInvite: (id: string) => {
-    return InviteAPI.deleteInvite(id);
+    // return InviteAPI.deleteInvite(id);
   },
 };

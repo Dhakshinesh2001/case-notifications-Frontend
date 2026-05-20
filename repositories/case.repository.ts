@@ -27,11 +27,11 @@ export type Case = {
 export const CaseRepository = {
   createLocal: (data: Case) => {
 
-    console.log("all orgsgsss",db.getAllSync(
+    console.log("all orgsgsss", db.getAllSync(
       `SELECT * FROM orgs`));
-   const currentOrg = orgRepository.currentOrg();
-const orgId = currentOrg?.id;
-    
+    const currentOrg = orgRepository.currentOrg();
+    const orgId = currentOrg?.id;
+
     db.runSync(
       `INSERT INTO cases 
       (id, title,orgId, description, caseNumber, court, status, createdAt, updatedAt, syncStatus,isSynced)
@@ -54,7 +54,7 @@ const orgId = currentOrg?.id;
 
   updateLocal: (id: string, updates: Partial<Case>) => {
     const currentOrg = orgRepository.currentOrg();
-const orgId = currentOrg?.id;
+    const orgId = currentOrg?.id;
     const now = new Date().toISOString();
 
     const fields = [];
@@ -90,16 +90,16 @@ const orgId = currentOrg?.id;
 
   getById: (id: string): Case | null => {
     const currentOrg = orgRepository.currentOrg();
-const orgId = currentOrg?.id;
-    const res = db.getAllSync(`SELECT * FROM cases WHERE id = ? AND orgId = ?`, [id,orgId]);
+    const orgId = currentOrg?.id;
+    const res = db.getAllSync(`SELECT * FROM cases WHERE id = ? AND orgId = ?`, [id, orgId]);
     return (res[0] as Case) || null;
   },
 
   getAll: (): Case[] => {
 
     const currentOrg = orgRepository.currentOrg();
-const orgId = currentOrg?.id;
-    console.log("inside case.repo.ts:", orgId,"dfskf");
+    const orgId = currentOrg?.id;
+    console.log("inside case.repo.ts:", orgId, "dfskf");
     return db.getAllSync(
       `SELECT * FROM cases WHERE deletedAt IS NULL AND orgId = ? ORDER BY createdAt DESC`, [orgId]
     ) as Case[];
@@ -107,7 +107,7 @@ const orgId = currentOrg?.id;
 
   getPending: (): Case[] => {
     const currentOrg = orgRepository.currentOrg();
-const orgId = currentOrg?.id;
+    const orgId = currentOrg?.id;
     return db.getAllSync(
       `SELECT * FROM cases WHERE syncStatus IN ('PENDING', 'FAILED') AND orgId = ?`, [orgId]
     ) as Case[];
@@ -115,7 +115,7 @@ const orgId = currentOrg?.id;
 
   getFailed: (): Case[] => {
     const currentOrg = orgRepository.currentOrg();
-const orgId = currentOrg?.id;
+    const orgId = currentOrg?.id;
     return db.getAllSync(
       `SELECT * FROM cases WHERE syncStatus = 'FAILED' AND orgId = ?`, [orgId]
     ) as Case[];
@@ -143,17 +143,17 @@ const orgId = currentOrg?.id;
 
   upsertFromBackend: (data: any) => {
     const local = CaseRepository.getById(data.id);
-   const currentOrg = orgRepository.currentOrg();
-const orgId = currentOrg?.id;
+    const currentOrg = orgRepository.currentOrg();
+    const orgId = currentOrg?.id;
     const now = new Date().toISOString();
     if (!local) {
-      console.log("localcase",local);
+      console.log("localcase", local);
       db.runSync(
         `INSERT INTO cases 
         (id,orgId, title, description, caseNumber, court, status, createdAt, updatedAt, syncStatus, isSynced, lastFetchedAt)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
-          
+
           data.id,
           orgId,
           data.title,
@@ -162,7 +162,7 @@ const orgId = currentOrg?.id;
           data.court ?? null,
           data.status ?? null,
           data.createdAt,
-          data.updatedAt ?? now, 
+          data.updatedAt ?? now,
           'SYNCED',
           1,
           new Date().toISOString(),

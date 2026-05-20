@@ -1,12 +1,12 @@
 import { View, Text, TouchableOpacity } from 'react-native';
-import { useOrg } from '@/providers/OrgProvider';
+// import { useOrg } from '@/providers/OrgProvider';
 import { orgRepository } from '@/repositories/org.repository';
 
 export const DrawerContent = ({ navigation }: any) => {
-  const { orgId, switchOrg } = useOrg();
+  // const { orgId, switchOrg } = useOrg();
 
   // 🔥 Load orgs from DB (not hardcoded)
-  const orgs = orgRepository.getOrgs();
+  // const orgs = orgRepository.getOrgs();
 
   return (
     <View style={{ padding: 20 }}>
@@ -14,7 +14,7 @@ export const DrawerContent = ({ navigation }: any) => {
         Organization
       </Text>
 
-      {orgs.map((org) => {
+      {/* {orgs.map((org) => {
         const isActive = org.id === orgId;
 
         return (
@@ -33,7 +33,7 @@ export const DrawerContent = ({ navigation }: any) => {
             </Text>
           </TouchableOpacity>
         );
-      })}
+      })} */}
 
       {/* Navigation */}
       <View style={{ marginTop: 20 }}>

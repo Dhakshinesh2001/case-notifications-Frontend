@@ -1,9 +1,33 @@
-// 🔥 TEMP MOCK (until Clerk is properly set up)
+// import { AuthProvider } from '../auth.interface';
+// import { getClerkInstance } from '@clerk/clerk-expo';
 
-export const getAuthToken = async () => {
-  return "test_token";
-};
+// const clerk = getClerkInstance();
 
-export const signOut = async () => {
-  console.log("sign out (mock)");
-};
+// export class ClerkProviderImpl implements AuthProvider {
+//   async getToken(): Promise<string | null> {
+//     try {
+//       return await clerk.session?.getToken() ?? null;
+//     } catch {
+//       return null;
+//     }
+//   }
+
+//   async signIn() {
+//     console.log("Handled via UI");
+//   }
+
+//   async signOut() {
+//     await clerk.signOut();
+//   }
+
+//   async getUser() {
+//     const user = clerk.user;
+
+//     if (!user) return null;
+
+//     return {
+//       id: user.id,
+//       email: user.primaryEmailAddress?.emailAddress,
+//     };
+//   }
+// }

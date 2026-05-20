@@ -11,13 +11,22 @@ import { AppStatusActions } from '../../hooks/useAppStatus';
 // import { getOrgId } from '../../api/org';
 import { orgRepository } from '@/repositories/org.repository';
 import { NotificationService } from '../notification/notification.service';
+import { AuthService } from '../auth/auth.service';
+import { userRepository } from '@/repositories/user.repository';
 let isSyncing = false;
 let hasPending = false;
 let debounceTimer: any = null;
 
 export const SyncService = {
+  
   // 🔁 GLOBAL SYNC 
-  scheduleSync: () => {
+  scheduleSync: async () => {
+    const token = await AuthService.getToken();
+
+if (!token) {
+  console.log("No auth token → offline mode");
+  return;
+}
     // 🔁 clear previous timer
     if (debounceTimer) {
       clearTimeout(debounceTimer);
@@ -30,10 +39,23 @@ export const SyncService = {
   },
 
   syncNow: async () => {
+    const token = await AuthService.getToken();
+
+if (!token) {
+  console.log("No auth token → offline mode");
+  return;
+}
     await SyncService.runSync();
   },
 
   runSync: async () => {
+
+    const token = await AuthService.getToken();
+
+if (!token) {
+  console.log("No auth token → offline mode");
+  return;
+}
     const currentOrg = orgRepository.currentOrg();
     const orgId = currentOrg?.id;
 
@@ -87,6 +109,12 @@ export const SyncService = {
     // await NotificationService.checkEvents();
   },
   syncAll: async () => {
+    const token = await AuthService.getToken();
+
+if (!token) {
+  console.log("No auth token → offline mode");
+  return;
+}
     console.log("syncAll called");
     const currentOrg = orgRepository.currentOrg();
     const orgId = currentOrg?.id;
@@ -124,32 +152,39 @@ export const SyncService = {
 
   // 🔽 PULL
   pullAll: async () => {
+    const token = await AuthService.getToken();
+
+if (!token) {
+  console.log("No auth token → offline mode");
+  return;
+}
     console.log("pullAll called");
 
     try {
       // console.log("pull all data123:");
       const data = await SyncAPI.sync();
       //   console.log("pull all data:", data);
-
+      const currentOrg = orgRepository.currentOrg();
       const safe = (arr: any) =>
         Array.isArray(arr) ? arr : arr?.data || [];
 
       const cases = safe(data.cases);
       const events = safe(data.events);
       const tasks = safe(data.tasks);
-      const orgs = safe(data.orgs);
-      console.log("inside pullALL22:", orgs);
-      console.log("beforeorgfetch");
+      // const orgs = safe(data.orgs);
+      const orgUsers = safe(data.users);
+      // console.log("inside pullALL22:", orgs);
+      // console.log("beforeorgfetch");
       cases.forEach((c: any) => {
         if (c.deletedAt) {
-          console.log("beforeorgfetch11");
+          // console.log("beforeorgfetch11");
           CaseRepository.removeDeleted(c.id);
         } else {
-          console.log("beforeorgfetch22");
+          // console.log("beforeorgfetch22");
           CaseRepository.upsertFromBackend(c);
         }
       });
-      console.log("beforeveetch");
+      // console.log("beforeveetch");
       events.forEach((e: any) => {
         if (e.deletedAt) {
           EventRepository.removeDeleted(e.id);
@@ -165,11 +200,14 @@ export const SyncService = {
           TaskRepository.upsertFromBackend(t);
         }
       });
-      console.log("beforeorgfetch");
-      orgs.forEach((o: any) => {
-        console.log("o in pull all", o);
-        orgRepository.upsertFromBackend(o);
-      });
+
+          userRepository.upsertFromBackend(orgUsers,currentOrg.id );
+        // }
+      // console.log("beforeorgfetch");
+      // orgs.forEach((o: any) => {
+      //   console.log("o in pull all", o);
+      //   orgRepository.upsertFromBackend(o);
+      // });
 
 
 
@@ -189,6 +227,12 @@ export const SyncService = {
     markFailed,
     removeDeleted,
   }: any) => {
+    const token = await AuthService.getToken();
+
+if (!token) {
+  console.log("No auth token → offline mode");
+  return;
+}
     for (const item of items) {
       try {
         // 🧹 DELETE
@@ -226,6 +270,12 @@ export const SyncService = {
 
   // 🔼 CASES
   pushCases: async () => {
+    const token = await AuthService.getToken();
+
+if (!token) {
+  console.log("No auth token → offline mode");
+  return;
+}
     console.log("push cases called");
     const items = CaseRepository.getPending();
 
@@ -253,6 +303,12 @@ export const SyncService = {
 
   // 🔼 EVENTS
   pushEvents: async () => {
+    const token = await AuthService.getToken();
+
+if (!token) {
+  console.log("No auth token → offline mode");
+  return;
+}
     const items = EventRepository.getPending();
     console.log("items in SYNC service",items);
 
@@ -281,6 +337,12 @@ export const SyncService = {
 
   // 🔼 TASKS
   pushTasks: async () => {
+    const token = await AuthService.getToken();
+
+if (!token) {
+  console.log("No auth token → offline mode");
+  return;
+}
     const items = TaskRepository.getPending();
 
     await SyncService.pushEntity({
@@ -310,6 +372,12 @@ export const SyncService = {
 
   // 🔁 RETRY FAILED
   retryFailed: async () => {
+    const token = await AuthService.getToken();
+
+if (!token) {
+  console.log("No auth token → offline mode");
+  return;
+}
     await Promise.all([
       SyncService.pushCases(),
       SyncService.pushEvents(),
@@ -319,6 +387,12 @@ export const SyncService = {
 
 
   syncCase: async (caseId: string) => {
+    const token = await AuthService.getToken();
+
+if (!token) {
+  console.log("No auth token → offline mode");
+  return;
+}
     const currentOrg = orgRepository.currentOrg();
     const orgId = currentOrg?.id;
 
@@ -405,7 +479,13 @@ export const SyncService = {
     }
   },
 
-  startRetryWorker: () => {
+  startRetryWorker: async () => {
+  const token = await AuthService.getToken();
+
+if (!token) {
+  console.log("No auth token → offline mode");
+  return;
+}
   setInterval(async () => {
     const currentOrg = orgRepository.currentOrg();
     const orgId = currentOrg?.id;

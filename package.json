@@ -1,5 +1,5 @@
 {
-  "name": "case-manager-app-fe",
+  "name": "case-manager-app",
   "main": "expo-router/entry",
   "version": "1.0.0",
   "scripts": {
@@ -23,6 +23,7 @@
     "expo": "~54.0.34",
     "expo-auth-session": "~7.0.11",
     "expo-background-fetch": "~14.0.9",
+    "expo-clipboard": "~8.0.8",
     "expo-constants": "~18.0.13",
     "expo-crypto": "~15.0.9",
     "expo-font": "~14.0.11",
@@ -47,6 +48,7 @@
     "react-native-reanimated": "~4.1.1",
     "react-native-safe-area-context": "~5.6.0",
     "react-native-screens": "~4.16.0",
+    "react-native-sectioned-multi-select": "^0.10.0",
     "react-native-uuid": "^2.0.4",
     "react-native-web": "~0.21.0",
     "react-native-worklets": "0.5.1",

@@ -1,48 +1,150 @@
 import { useState } from 'react';
-import { View, Text, TouchableOpacity, Platform } from 'react-native';
+import {
+  View,
+  Text,
+  TouchableOpacity,
+  LayoutAnimation,
+} from 'react-native';
+
 import EditableField from '@/components/case/EditableField';
 import { EventService } from '@/features/event/event.service';
 import TaskCard from './TaskCard';
-import DateTimePicker from '@react-native-community/datetimepicker';
+import { useDateTimePicker } from '@/hooks/useDateTimePicker';
 
 export default function EventCard({
   event,
   tasks,
-  onUpdate,
   isOpen,
   onToggle,
-  expandedId,
-  setExpandedId,
+  isHighlighted,
+  onAddTask,
+  updateEventLocal,
+  replaceTempEvent,
+  updateTaskLocal,
+  replaceTempTask,
 }: any) {
-  const isTemp = event.isTemp;
-  const [eventDate, setEventDate] = useState(new Date(event.eventDate || Date.now()));
-  const [showPicker, setShowPicker] = useState(false);
+  const [eventDate, setEventDate] = useState<Date | null>(
+    event.eventDate ? new Date(event.eventDate) : null
+  );
 
-  const update = (field: string, value: any) => {
-    if (isTemp) {
-      if (field === 'content' && !value?.trim()) return;
+  const { open } = useDateTimePicker();
 
-      EventService.createEvent(event.caseId, {
-        content: field === 'content' ? value : 'New Event',
-        type: field === 'type' ? value : 'GENERAL',
-        eventDate: field === 'eventDate' ? value : eventDate.toISOString(),
-      });
+  /**
+   * 🔥 SINGLE SOURCE OF TRUTH
+   *
+   * Handles:
+   * - temp event creation
+   * - existing event updates
+   * - optimistic local updates
+   */
+  const persistEvent = async ({
+    content,
+    date,
+  }: {
+    content?: string;
+    date?: Date | null;
+  }) => {
+    const finalContent =
+      content ?? event.content ?? '';
 
-      onUpdate?.();
+    const finalDate =
+      date ?? eventDate ?? new Date();
+
+    // 🔥 optimistic local update
+    updateEventLocal(event.id, {
+      content: finalContent,
+      eventDate: finalDate.toISOString(),
+    });
+
+    /**
+     * 🔥 TEMP EVENT CREATION
+     */
+    if (event.isTemp) {
+      // don't create empty temp events
+      if (!finalContent.trim()) return;
+
+      try {
+        const createdEvent =
+          await EventService.createEvent(event.caseId, {
+            content: finalContent,
+            type: 'GENERAL',
+            eventDate: finalDate.toISOString(),
+          });
+
+        if (!createdEvent) return;
+
+        replaceTempEvent(event.id, createdEvent);
+      } catch (e) {
+        console.error('Event create failed', e);
+      }
+
       return;
     }
 
-    const payload = field === 'eventDate' ? value : value;
-    EventService.updateEvent(event.id, { [field]: payload });
-    onUpdate?.();
+    /**
+     * 🔥 EXISTING EVENT UPDATE
+     */
+    try {
+      await EventService.updateEvent(event.id, {
+        content: finalContent,
+        eventDate: finalDate.toISOString(),
+      });
+    } catch (e) {
+      console.error('Event update failed', e);
+    }
   };
 
-  const onDateChange = (e: any, selectedDate?: Date) => {
-    setShowPicker(Platform.OS === 'ios');
-    if (selectedDate) {
-      setEventDate(selectedDate);
-      update('eventDate', selectedDate.toISOString());
-    }
+  /**
+   * 🔥 CONTENT SAVE
+   */
+  const saveContent = async (content: string) => {
+    await persistEvent({
+      content,
+    });
+  };
+
+  /**
+   * 🔥 DATE PICKER
+   */
+  const openDatePicker = () => {
+    open({
+      value: eventDate || new Date(),
+      mode: 'datetime',
+
+      onChange: async (date) => {
+        if (!date) return;
+
+        setEventDate(date);
+
+        await persistEvent({
+          date,
+        });
+      },
+    });
+  };
+
+  /**
+   * 🔥 ADD TEMP TASK
+   */
+  const handleAddTask = () => {
+    if (!onAddTask) return;
+
+    const tempTask = {
+  id: `temp_task_${Date.now()}`,
+  title: '',
+  status: 'OPEN',
+
+  isTemp: true,
+
+  caseId: event.caseId,
+  eventId: event.id,
+
+  assignedUserIds: [],
+
+  createdAt: new Date().toISOString(),
+};
+
+    onAddTask(tempTask);
   };
 
   return (
@@ -50,71 +152,73 @@ export default function EventCard({
       style={{
         padding: 12,
         borderRadius: 10,
-        backgroundColor: '#f5f5f5',
+        backgroundColor: isHighlighted
+          ? '#f5f7ff'
+          : '#f5f5f5',
+        borderLeftWidth: isHighlighted ? 4 : 0,
+        borderLeftColor: '#4f46e5',
       }}
     >
-      <TouchableOpacity onPress={onToggle}>
+      {/* 🔹 HEADER */}
+      <TouchableOpacity
+        onPress={() => {
+          LayoutAnimation.configureNext(
+            LayoutAnimation.Presets.easeInEaseOut
+          );
+
+          onToggle();
+        }}
+      >
         <Text style={{ fontWeight: 'bold' }}>
           {event.content || 'New Event'}
         </Text>
-        <Text style={{ fontSize: 12, color: '#666' }}>
-          📅 {eventDate.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}, {eventDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-        </Text>
       </TouchableOpacity>
 
+      {/* 🔹 BODY */}
       {isOpen && (
         <View style={{ marginTop: 10 }}>
           <EditableField
             label="Content"
             value={event.content}
-            onSave={(v: string) => update('content', v)}
-            autoFocus={isTemp}
+            onSave={saveContent}
+            autoFocus={event.isTemp}
           />
 
-          <TouchableOpacity 
-            onPress={() => setShowPicker(true)}
-            style={{ marginBottom: 15 }}
+          <TouchableOpacity
+            onPress={openDatePicker}
+            style={{
+              marginTop: 10,
+              marginBottom: 10,
+            }}
           >
-            <Text style={{ fontSize: 12, color: '#666', marginBottom: 4 }}>Event Date</Text>
-            <View style={{ padding: 8, backgroundColor: '#fff', borderRadius: 4, borderWidth: 1, borderColor: '#ddd' }}>
-              <Text>{eventDate.toLocaleDateString()}</Text>
-            </View>
+            <Text>
+              {eventDate
+                ? eventDate.toLocaleString()
+                : 'Pick date'}
+            </Text>
           </TouchableOpacity>
 
-          {showPicker && (
-            <DateTimePicker
-              value={eventDate}
-              mode="datetime"
-              display="default"
-              onChange={onDateChange}
-            />
-          )}
-
-          <EditableField
-            label="Type"
-            value={event.type}
-            onSave={(v: string) => update('type', v)}
-          />
-
-          <Text style={{ marginTop: 10, fontWeight: 'bold' }}>Tasks</Text>
-
-          {tasks?.length ? (
-            tasks.map((task: any) => (
+          {/* 🔹 TASKS */}
+          {tasks
+            ?.filter(Boolean)
+            .map((task: any) => (
               <TaskCard
                 key={task.id}
                 task={task}
-                onUpdate={onUpdate}
-                isOpen={expandedId === `task_${task.id}`}
-                onToggle={() =>
-                  setExpandedId(
-                    expandedId === `task_${task.id}` ? null : `task_${task.id}`
-                  )
-                }
+                updateTaskLocal={updateTaskLocal}
+                replaceTempTask={replaceTempTask}
               />
-            ))
-          ) : (
-            <Text style={{ color: '#888', marginTop: 4 }}>No tasks</Text>
-          )}
+            ))}
+
+          {/* 🔹 ADD TASK */}
+          <TouchableOpacity
+            onPress={handleAddTask}
+            style={{
+              marginTop: 10,
+            }}
+          >
+            <Text>+ Add Task</Text>
+          </TouchableOpacity>
         </View>
       )}
     </View>
